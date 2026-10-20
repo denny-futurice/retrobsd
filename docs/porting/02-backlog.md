@@ -12,8 +12,8 @@ Status legend: `[ ]` open, `[x]` done.
       (Debian has no `qemu-system-m68k` package; m68k is in `qemu-system-misc`)
 - [x] Record toolchain and QEMU versions; verify `-M virt -cpu m68030`
       (see D10 in [03-decisions.md](03-decisions.md))
-- [x] Freestanding smoke test: compile, link and boot a Goldfish TTY "hello" on
-      `qemu-system-m68k -M virt -cpu m68030`
+- [x] Freestanding smoke tests (`docs/porting/smoke/`): `hello` boots and prints
+      on the Goldfish TTY, `fpu` checks hardware floating point (D12)
 
 ## M1: Build system and sizing
 - [ ] Add a `CROSS = m68k-linux-gnu-` variant of `target.mk` (no Clang/LLVM
@@ -38,6 +38,8 @@ Status legend: `[ ]` open, `[x]` done.
 - [ ] Goldfish PIC and timer; clock tick; `spl*` mapped to the IPL mask
 - [ ] `trap #0` syscall path; signals and `sigreturn`
 - [ ] Context switch, `copyin`/`copyout`
+- [ ] FPU state save/restore (`fsave`/`frestore`, `fmovem`) in context switch
+      and signal delivery; FPU exception and line-F trap handling (D12)
 - [ ] 68030 cache enable via `CACR`
 - [ ] Run a static `init` as a user process (fixed user region, no MMU)
 
@@ -52,7 +54,10 @@ Status legend: `[ ]` open, `[x]` done.
 
 ## M5: Libc and userland
 - [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline
-- [ ] Port or select soft-float and 64-bit runtime helpers
+- [ ] Select the 64-bit integer runtime helpers from `src/libc/runtime/`
+      (`divdi3`, `udivmoddi4`, ...); soft-float code is not used (D12)
+- [ ] Audit FP-dependent libc/libm code (`atof`, `ecvt`/`gcvt`, `printf` `%f`,
+      `libm`) for MIPS or soft-float assumptions; confirm hardware FP works
 - [ ] Build the reduced userland with `rootfs.manifest` adjusted
 - [ ] Boot to a shell in QEMU; smoke test core commands
 

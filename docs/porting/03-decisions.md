@@ -21,8 +21,10 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** Linux-specific defaults must be neutralised with flags.
 
 ## D3: Kernel is libc-free; userland uses the RetroBSD libc
-- **Decision:** No external libc. Soft float and 64-bit helpers come from
-  `src/libc/runtime/`, not the Linux-built `libgcc`.
+- **Decision:** No external libc. 64-bit integer helpers (`__udivdi3` etc.)
+  come from `src/libc/runtime/`, not the Linux-built `libgcc`. Floating point
+  is hardware, not software (see D12; originally this decision also assigned
+  soft-float helpers to `runtime/`).
 
 ## D4: Build host is Debian Testing
 
@@ -59,13 +61,14 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   -nographic` boots a freestanding ELF32 big-endian m68k binary, and a write to
   the Goldfish TTY at `0xff008000` reaches the console. `-cpu m68030` is
   accepted on `virt`, so no `m68040` fallback is needed.
-- **Flags that work:** `-mcpu=68030 -msoft-float -ffreestanding -nostdlib
-  -nostdinc -fno-pic -fno-pie -fno-stack-protector -std=gnu99 -Os -Wall
-  -Werror`; link with `m68k-linux-gnu-ld -T script.ld -static`.
-- **Note:** the toolchain emits references to `__udivdi3` and `__adddf3`
-  (64-bit divide, soft-float) for freestanding code, so those helpers must come
-  from `src/libc/runtime/` (or be added there) as planned in D3. The Linux
-  `libgcc` is not used.
+- **Flags that work:** `-mcpu=68030 -ffreestanding -nostdlib -nostdinc
+  -fno-pic -fno-pie -fno-stack-protector -std=gnu99 -Os -Wall -Werror`; link
+  with `m68k-linux-gnu-ld -T script.ld -static`. (Originally recorded with
+  `-msoft-float`; superseded by D12.)
+- **Note:** the toolchain emits a reference to `__udivdi3` for runtime 64-bit
+  division in freestanding code, so 64-bit integer helpers must come from
+  `src/libc/runtime/` as planned in D3. The Linux `libgcc` is not used.
+  Floating point needs no helper functions (D12).
 - **Note:** QEMU `virt` loads an ELF kernel at its entry point with no stack set
   up; `crt0` must set `%sp` itself.
 
@@ -83,3 +86,29 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     material while porting; delete them later, once nothing needs consulting.
   - No upstream merging or tracking is expected. Any rebase onto
     `RetroBSD/retrobsd` is done manually, per patch, and only where relevant.
+
+## D12: Soft float is rejected; a 68881/68882 FPU is mandatory
+- **Context:** The initial plan (D3, D10) reused the compiler-rt-style soft-float
+  code in `src/libc/runtime/`. It is clean, but validating it for correctness
+  on m68k would be too much effort. All hardware platforms of interest come with
+  a 68881 or 68882 FPU.
+- **Decision:** Floating point uses the hardware FPU. Code is built with
+  hardware float (`-mcpu=68030 -m68881`, which is GCC's default for this
+  target); `-msoft-float` is not used. Systems without an FPU are unsupported.
+- **Verified (M0):** a freestanding program using `double` arithmetic builds
+  with no undefined symbols (no `libgcc` FP helpers) and runs correctly on
+  QEMU `virt` with both `-cpu m68030` and `-cpu m68040`.
+- **Consequences:**
+  - The FP files in `src/libc/runtime/` (`adddf3.c`, `muldf3.c`, `fp_*`, ...)
+    are not used on m68k. Leave them in place (PIC32 reference, D11). The 64-bit
+    integer helpers there (`divdi3.c`, `udivmoddi4.c`, ...) are still needed.
+  - The kernel must save and restore FPU state across context switches and
+    signals (`fsave`/`frestore`, `fmovem`), and handle FPU exceptions and the
+    line-F trap. This is new machine-dependent work (backlog M3).
+  - The kernel itself should not use floating point; check the kernel
+    objects for FPU instructions.
+  - Userland FP code (libc `atof`, `ecvt`/`gcvt`, `printf` `%f`, `libm`) uses
+    the FPU directly. Their MIPS-specific or soft-float assumptions need
+    auditing (M5).
+  - QEMU's m68k CPUs provide an FPU, so bring-up on `virt` needs no emulation
+    of one.

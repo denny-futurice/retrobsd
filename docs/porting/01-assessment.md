@@ -18,12 +18,13 @@ QEMU is estimated at about 2-3 person-months.
 - Debian provides `gcc-*-m68k-linux-gnu`, `binutils-m68k-linux-gnu` and
   `qemu-system-m68k`. It does not provide an `m68k-elf` target, so
   `m68k-linux-gnu-gcc` is used as a freestanding cross compiler.
-- Flags: `-mcpu=68030 -msoft-float -ffreestanding -nostdlib -nostdinc -fno-pic
+- Flags: `-mcpu=68030 -ffreestanding -nostdlib -nostdinc -fno-pic
   -fno-pie -fno-stack-protector -std=gnu99`; link with `-static -no-pie`.
   Kernel code also uses `-fno-builtin`.
-- Floating point comes from RetroBSD's `src/libc/runtime/` (compiler-rt style),
-  so the Linux-built `libgcc` is not needed. 64-bit integer helpers
-  (`__divdi3` etc.) are also in `runtime/`.
+- Floating point uses the hardware 68881/68882 FPU (D12); soft float is
+  rejected, so the FP code in `src/libc/runtime/` is not used. The 64-bit
+  integer helpers (`__divdi3` etc.) in `runtime/` are still needed, and the
+  Linux-built `libgcc` is not used.
 - Build system: add a `CROSS = m68k-linux-gnu-` variant of `target.mk` and
   `sys/pic32/Makefile.kconf`, replacing Clang-only options and
   `clang-config.mk`; add an ELF m68k linker script. Expect a first pass of
@@ -100,4 +101,4 @@ area and the most likely source of late-surfacing bugs.
   showed GCC 12; any recent GCC should work).
 - Whether QEMU `virt` accepts `-cpu m68030` (resolved in M0: yes; see D10).
 - Whether the kernel needs any `libgcc` helper not provided by
-  `src/libc/runtime/`.
+  `src/libc/runtime/` (integer helpers only; FP is hardware, D12).

@@ -14,7 +14,7 @@ Out of scope: Amiga hardware and the native on-target compilers and tools.
 |----------------------------------------|-------------------------------------------|
 | [01-assessment.md](01-assessment.md)   | Feasibility assessment and risks          |
 | [02-backlog.md](02-backlog.md)         | Milestone task backlog (M0-M6)            |
-| [03-decisions.md](03-decisions.md)     | Decision record (D1-D11)                  |
+| [03-decisions.md](03-decisions.md)     | Decision record (D1-D12)                  |
 | [smoke/](smoke/)                       | Freestanding toolchain/QEMU smoke test    |
 
 ## Host setup (Debian Testing)
@@ -33,9 +33,17 @@ Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 sh docs/porting/smoke/run.sh
 ```
 
-Builds a tiny freestanding program with the flags the port will use, boots it
-on `qemu-system-m68k -M virt -cpu m68030`, and expects `hello m68030 9` on the
-Goldfish TTY. Set `CROSS=` to use a different toolchain prefix.
+Each test is a single freestanding source file in `smoke/` that checks one thing and prints an
+expected string to the Goldfish TTY on `qemu-system-m68k -M virt -cpu m68030`, built with the flags
+the port will use.
+
+| Test    | Checks                                            | Expected output |
+|---------|---------------------------------------------------|-----------------|
+| `hello` | toolchain, linker script and QEMU boot            | `hello m68030`  |
+| `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
+
+`sh docs/porting/smoke/run.sh [test]` runs all tests, or just the named one. Set `CROSS=` to use a
+different toolchain prefix.
 
 ## Running a kernel image on QEMU
 

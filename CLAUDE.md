@@ -14,12 +14,14 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   delete PIC32 code or docs until told to.
 - **Toolchain:** vanilla GCC from Debian, `m68k-linux-gnu-gcc`, used freestanding (no libc for the
   kernel, RetroBSD's own libc for userland). Flags verified in D10:
-  `-mcpu=68030 -msoft-float -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie
-  -fno-stack-protector -std=gnu99`. Soft-float and 64-bit helpers come from `src/libc/runtime/`.
+  `-mcpu=68030 -m68881 -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie
+  -fno-stack-protector -std=gnu99`. Hardware FPU is mandatory (D12): no soft float. Only the
+  64-bit integer helpers come from `src/libc/runtime/`.
 - **No MMU**, fixed user region and whole-process swapping as on PIC32. Target is big-endian.
 - **Out of scope:** Amiga hardware and native on-target compilers/tools (`as`, `ld`, `cc`, `adb`,
   `aout`, `ccom`, `lcc`, `smlrc`, ...).
-- **Test:** `sh docs/porting/smoke/run.sh` checks the toolchain and QEMU
+- **Test:** `sh docs/porting/smoke/run.sh` runs the single-purpose smoke tests (toolchain/boot and
+  FPU) on QEMU
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - Do not push to a remote unless asked.
 
