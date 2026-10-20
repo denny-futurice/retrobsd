@@ -14,7 +14,7 @@ Out of scope: Amiga hardware and the native on-target compilers and tools.
 |----------------------------------------|-------------------------------------------|
 | [01-assessment.md](01-assessment.md)   | Feasibility assessment and risks          |
 | [02-backlog.md](02-backlog.md)         | Milestone task backlog (M0-M6)            |
-| [03-decisions.md](03-decisions.md)     | Decision record (D1-D12)                  |
+| [03-decisions.md](03-decisions.md)     | Decision record (D1-D15)                  |
 | [smoke/](smoke/)                       | Freestanding toolchain/QEMU smoke test    |
 
 ## Host setup (Debian Testing)
