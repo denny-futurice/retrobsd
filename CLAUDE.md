@@ -2,7 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What this is
+## Current work: 68030 port (branch `retrobsd-68k`)
+
+This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
+[docs/porting/](docs/porting/README.md) first: the assessment, the milestone backlog
+(`02-backlog.md`) and the decision record (`03-decisions.md`) are the source of truth.
+
+- **PIC32 is abandoned** (D11). Breaking the PIC32 build is fine, and code is not refactored to
+  support both targets. Everything below this section describes the PIC32/Clang system: treat it
+  as **reference material** for how the tree works, not as a build that must keep passing. Do not
+  delete PIC32 code or docs until told to.
+- **Toolchain:** vanilla GCC from Debian, `m68k-linux-gnu-gcc`, used freestanding (no libc for the
+  kernel, RetroBSD's own libc for userland). Flags verified in D10:
+  `-mcpu=68030 -msoft-float -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie
+  -fno-stack-protector -std=gnu99`. Soft-float and 64-bit helpers come from `src/libc/runtime/`.
+- **No MMU**, fixed user region and whole-process swapping as on PIC32. Target is big-endian.
+- **Out of scope:** Amiga hardware and native on-target compilers/tools (`as`, `ld`, `cc`, `adb`,
+  `aout`, `ccom`, `lcc`, `smlrc`, ...).
+- **Test:** `sh docs/porting/smoke/run.sh` checks the toolchain and QEMU
+  (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
+- Do not push to a remote unless asked.
+
+## What this is (PIC32 system, reference)
 
 RetroBSD is 2.11BSD ported to PIC32 (MIPS32r2) microcontrollers — a full Unix (kernel + userland +
 libc + man pages) running in 128 KB of on-chip RAM with no MMU. Consequences that shape the whole

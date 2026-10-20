@@ -14,6 +14,10 @@ and no external memory.
 
 Documentation lives in the [project wiki](https://github.com/RetroBSD/retrobsd/wiki).
 
+> **Fork note:** the `retrobsd-68k` branch of this fork is porting RetroBSD to the Motorola 68030
+> (QEMU `virt` first). PIC32 support is not maintained there. See
+> [docs/porting/](docs/porting/README.md). The rest of this README describes the PIC32 system.
+
 ## Quick start
 
 No hardware needed — you can build the system and boot it in a simulator in about five minutes.
