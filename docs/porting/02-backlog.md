@@ -30,10 +30,16 @@ Status legend: `[ ]` open, `[x]` done.
       an untouched snapshot of upstream (D11: no tracking or merging).
 
 ## M1: Build system and sizing
-- [ ] Add a `CROSS = m68k-linux-gnu-` variant of `target.mk` (no Clang/LLVM
-      variables, no `clang-config.mk`)
-- [ ] Add an equivalent variant of `sys/pic32/Makefile.kconf`
-- [ ] Add an ELF32 m68k linker script (kernel and userland)
+These tasks assume the in-place approach proposed in M0 (D11): the existing build files
+are converted for m68k, not duplicated, and the PIC32 build stops working.
+- [ ] Convert `target.mk` in place to GCC: `CROSS = m68k-linux-gnu-`,
+      `-mcpu=68030 -m68881` and the freestanding flags from D10; remove the
+      Clang/LLVM variables and `include clang-config.mk`
+- [ ] Convert `sys/pic32/Makefile.kconf` (the kernel build template) the same
+      way, then regenerate the board `Makefile`s via `kconfig`
+- [ ] Delete `clang-config.mk` once nothing includes it
+- [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with an
+      ELF32 m68k linker script and `-m m68kelf` (kernel and userland)
 - [ ] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
 - [ ] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
