@@ -68,3 +68,18 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `libgcc` is not used.
 - **Note:** QEMU `virt` loads an ELF kernel at its entry point with no stack set
   up; `crt0` must set `%sp` itself.
+
+## D11: PIC32 support is abandoned in this fork
+- **Context:** This fork exists to run RetroBSD on the 68030. Keeping both
+  targets working would force abstraction and refactoring that has no value for
+  this goal.
+- **Decision:** PIC32 support may be broken or removed. The m68k port is not
+  required to coexist with PIC32, and no refactoring is done to support both
+  (no `ARCH=` selector, no dual-target build files).
+- **Consequences:**
+  - `target.mk`, `Makefile.kconf`, `clang-config.mk` and the `libc/mips`
+    sources can be converted or replaced in place for m68k.
+  - PIC32 code and documentation stay in the tree for now as reference
+    material while porting; delete them later, once nothing needs consulting.
+  - No upstream merging or tracking is expected. Any rebase onto
+    `RetroBSD/retrobsd` is done manually, per patch, and only where relevant.
