@@ -8,8 +8,12 @@ Status legend: `[ ]` open, `[x]` done.
 ## M0: Project setup
 - [x] Create `retrobsd-68k` branch
 - [x] Add `docs/porting/` (assessment, backlog, decision record)
-- [ ] Install `gcc-m68k-linux-gnu`, `binutils-m68k-linux-gnu`, `qemu-system-m68k`
-- [ ] Record toolchain and QEMU versions; verify `-M virt -cpu m68030`
+- [x] Install `gcc-m68k-linux-gnu`, `binutils-m68k-linux-gnu`, `qemu-system-misc`
+      (Debian has no `qemu-system-m68k` package; m68k is in `qemu-system-misc`)
+- [x] Record toolchain and QEMU versions; verify `-M virt -cpu m68030`
+      (see D10 in [03-decisions.md](03-decisions.md))
+- [x] Freestanding smoke test: compile, link and boot a Goldfish TTY "hello" on
+      `qemu-system-m68k -M virt -cpu m68030`
 
 ## M1: Build system and sizing
 - [ ] Add a `CROSS = m68k-linux-gnu-` variant of `target.mk` (no Clang/LLVM

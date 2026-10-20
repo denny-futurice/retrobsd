@@ -50,3 +50,21 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Status:** Proposed; to be confirmed during the M4 endianness audit.
 - **Decision:** Retain the existing block and inode structures, with host tools
   (`fsutil`, `elf2aout`) made endian-correct.
+
+## D10: Verified toolchain baseline (M0)
+- **Versions:** `m68k-linux-gnu-gcc` 16.2.0 (Debian 16.2.0-3), GNU ld/binutils
+  2.47, QEMU 11.1.2 (`qemu-system-misc` 1:11.1.2+ds-3; there is no
+  `qemu-system-m68k` package).
+- **Verified:** `qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel x.elf
+  -nographic` boots a freestanding ELF32 big-endian m68k binary, and a write to
+  the Goldfish TTY at `0xff008000` reaches the console. `-cpu m68030` is
+  accepted on `virt`, so no `m68040` fallback is needed.
+- **Flags that work:** `-mcpu=68030 -msoft-float -ffreestanding -nostdlib
+  -nostdinc -fno-pic -fno-pie -fno-stack-protector -std=gnu99 -Os -Wall
+  -Werror`; link with `m68k-linux-gnu-ld -T script.ld -static`.
+- **Note:** the toolchain emits references to `__udivdi3` and `__adddf3`
+  (64-bit divide, soft-float) for freestanding code, so those helpers must come
+  from `src/libc/runtime/` (or be added there) as planned in D3. The Linux
+  `libgcc` is not used.
+- **Note:** QEMU `virt` loads an ELF kernel at its entry point with no stack set
+  up; `crt0` must set `%sp` itself.

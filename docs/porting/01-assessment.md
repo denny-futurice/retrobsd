@@ -96,8 +96,8 @@ area and the most likely source of late-surfacing bugs.
 
 ## Open verification items
 
-- Which GCC version Debian Testing ships for `m68k-linux-gnu` (a survey host
+- Which GCC version Debian Testing ships for `m68k-linux-gnu` (resolved in M0: GCC 16.2.0; see D10) (a survey host
   showed GCC 12; any recent GCC should work).
-- Whether QEMU `virt` accepts `-cpu m68030`.
+- Whether QEMU `virt` accepts `-cpu m68030` (resolved in M0: yes; see D10).
 - Whether the kernel needs any `libgcc` helper not provided by
   `src/libc/runtime/`.
