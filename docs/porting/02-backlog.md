@@ -14,6 +14,20 @@ Status legend: `[ ]` open, `[x]` done.
       (see D10 in [03-decisions.md](03-decisions.md))
 - [x] Freestanding smoke tests (`docs/porting/smoke/`): `hello` boots and prints
       on the Goldfish TTY, `fpu` checks hardware floating point (D12)
+- [x] Add GDB (`gdb-multiarch`) and `make check` to validate the tooling setup
+- [ ] Decide source layout and record it as a decision. Proposal: kernel in
+      `sys/m68k/` with the board in `sys/m68k/virt/`; userland asm in
+      `src/libc/m68k/`. Open question: `git mv` the MIPS sources now, or leave
+      `src/libc/mips/` and `sys/pic32/` untouched as reference until the m68k
+      versions exist (proposal: leave them). Also decide what happens to the
+      `include/machine` and `include/pic32` symlinks.
+- [ ] Decide build-file approach and record it as a decision. Proposal: edit
+      `target.mk`, `sys/pic32/Makefile.kconf` and `clang-config.mk` in place
+      (D11), as the first step of M1; old versions stay in git history. If
+      adopted, reword the M1 "variant" tasks accordingly.
+- [ ] Decide branch policy and record it as a decision. Proposal:
+      `retrobsd-68k` is the long-lived branch on the fork, and `master` stays
+      an untouched snapshot of upstream (D11: no tracking or merging).
 
 ## M1: Build system and sizing
 - [ ] Add a `CROSS = m68k-linux-gnu-` variant of `target.mk` (no Clang/LLVM
