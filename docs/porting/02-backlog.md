@@ -22,9 +22,9 @@ Status legend: `[ ]` open, `[x]` done.
 - [ ] Build-file approach (D14): convert `target.mk`, `sys/pic32/Makefile.kconf`
       and `clang-config.mk` in place, as the first step of M1 (the M1 tasks
       below are already worded for this)
-- [ ] Branch policy (D15): `retrobsd-68k` stays the long-lived branch on the fork
+- [x] Branch policy (D15): `retrobsd-68k` stays the long-lived branch on the fork
       and `master` an untouched upstream snapshot; nothing to implement beyond
-      keeping to it, so close this when M1 starts
+      keeping to it (accepted)
 
 ## M1: Build system and sizing
 These tasks assume the in-place approach proposed in M0 (D11): the existing build files

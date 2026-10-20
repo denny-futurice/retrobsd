@@ -137,6 +137,7 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   (D13), and is then moved.
 
 ## D15: Branch policy
+- **Status:** Accepted.
 - **Decision:** `retrobsd-68k` is the long-lived working branch, kept on the fork
   `denny-futurice/retrobsd` (`origin`). `master` stays an untouched snapshot of
   upstream and is not rebased or merged into the working branch (D11). The
