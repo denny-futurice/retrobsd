@@ -20,12 +20,13 @@ Out of scope: Amiga hardware and the native on-target compilers and tools.
 ## Host setup (Debian Testing)
 
 ```shell
-sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc
+sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb-multiarch
 ```
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. Verified versions are listed in decision D10.
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging. Verified versions are listed in
+decision D10. Run `make check` to validate the setup.
 
 ## Smoke test
 
@@ -42,14 +43,15 @@ the port will use.
 | `hello` | toolchain, linker script and QEMU boot            | `hello m68030`  |
 | `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
 
-`sh docs/porting/smoke/run.sh [test]` runs all tests, or just the named one. Set `CROSS=` to use a
+`sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix.
 
 ## Running a kernel image on QEMU
 
 ```shell
 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel <image.elf> -nographic
-# add -s -S and attach m68k-linux-gnu-gdb (or gdb-multiarch) to debug
+# to debug, add -s -S and attach gdb-multiarch:
+#   gdb-multiarch -ex "set architecture m68k" -ex "target remote :1234" <image.elf>
 ```
 
 Exit QEMU with `Ctrl-A X`.

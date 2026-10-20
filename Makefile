@@ -39,8 +39,13 @@ all: tools
 		$(MAKE) -C src install
 		$(MAKE) fs
 
-.PHONY: kernel
+.PHONY: check
 
+# Validate the m68k toolchain and QEMU with the freestanding smoke tests (see docs/porting).
+check:
+		sh docs/porting/smoke/run.sh
+
+.PHONY: kernel
 kernel: $(CONFIG) tools
 		$(MAKE) -C sys/pic32 all
 

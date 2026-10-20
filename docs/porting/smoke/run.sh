@@ -27,6 +27,7 @@ expected() {
 for tool in ${CROSS}gcc ${CROSS}ld qemu-system-m68k; do
     command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
+command -v gdb-multiarch >/dev/null || echo "warning: gdb-multiarch not found (debugging only)" >&2
 ${CROSS}gcc --version | head -1
 qemu-system-m68k --version | head -1
 

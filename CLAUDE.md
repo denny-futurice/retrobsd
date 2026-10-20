@@ -20,8 +20,8 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **No MMU**, fixed user region and whole-process swapping as on PIC32. Target is big-endian.
 - **Out of scope:** Amiga hardware and native on-target compilers/tools (`as`, `ld`, `cc`, `adb`,
   `aout`, `ccom`, `lcc`, `smlrc`, ...).
-- **Test:** `sh docs/porting/smoke/run.sh` runs the single-purpose smoke tests (toolchain/boot and
-  FPU) on QEMU
+- **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
+  (toolchain/boot and FPU) on QEMU
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - Do not push to a remote unless asked.
 
