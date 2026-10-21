@@ -25,6 +25,30 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - Do not push to a remote unless asked.
 
+### Working rules
+
+- **Branches (D15):** commit locally on `retrobsd-68k`. Never push, and do not touch `master` or
+  merge/rebase from `upstream`; the owner pushes. Upstream patches are cherry-picked by hand only.
+- **Reference code (D11, D13):** do not delete PIC32 or MIPS code or docs (`sys/pic32/`,
+  `src/libc/mips/`, ...) until told to. New m68k code goes in `sys/m68k/`, `sys/m68k/virt/` and
+  `src/libc/m68k/`; build files are converted in place (D14).
+- **Record decisions:** a change of direction or a new technical choice gets a new numbered entry in
+  `docs/porting/03-decisions.md`. Do not rewrite old entries; mark them superseded by the new one.
+- **Keep the backlog honest:** tick a task in `docs/porting/02-backlog.md` only when the work exists
+  (files created, test passing), not when it is merely decided.
+- **Update docs with the change:** if a flag, toolchain assumption or workflow changes, update
+  `docs/porting/` and this file in the same commit.
+- **Verify before claiming:** run `make check` after touching the toolchain, flags or smoke tests,
+  and check tool names and flags against the installed tools rather than from memory.
+- **Tests do one thing each:** prefer several small single-purpose tests (see
+  `docs/porting/smoke/`) over one combined test.
+- **Byte order:** the target is big-endian, the original code was written for little-endian MIPS.
+  Watch for byte-order assumptions in `tools/fsutil`, `tools/elf2aout` and on-disk formats.
+- **Commits:** small and focused, with the trailer
+  `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
+- The top-level `make` still builds the PIC32 system with Clang until M1 converts the build files;
+  do not expect it to work for m68k.
+
 ## What this is (PIC32 system, reference)
 
 RetroBSD is 2.11BSD ported to PIC32 (MIPS32r2) microcontrollers — a full Unix (kernel + userland +
