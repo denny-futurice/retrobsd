@@ -159,3 +159,33 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `upstream` remote (`RetroBSD/retrobsd`) is kept for reference and for
   cherry-picking individual patches by hand where relevant. Pushing is done
   manually by the owner.
+
+## D16: Machine constants and memory map for QEMU virt
+- **Status:** Proposed; values to be revisited once the kernel links (M2) and
+  the first processes run (M5).
+- **Decision:** `sys/m68k/machparam.h` keeps the PIC32 table sizes (`NBUF`,
+  `NPROC`, ...), `HZ` and `DEV_BSIZE`, and sets:
+  - `ENDIAN = BIG`.
+  - A fixed memory map in low RAM: kernel (vector table, image, stack) at
+    `0x00000000`-`0x0007ffff`, the single user region at
+    `0x00080000`-`0x000bffff` (256 KiB, `USER_DATA_START`/`USER_DATA_END`).
+  - `USIZE = 4096` (PIC32: 3072), to leave room for 68030 exception frames on
+    the kernel stack.
+  - Two interrupt levels, as on PIC32: `spl*()` either masks all interrupts
+    (IPL 7) or none, via the status register. Real Goldfish PIC levels come
+    later if needed.
+  - `long double` is the 96-bit 68881 extended type (`float.h`), unlike PIC32,
+    where `double` was 32 bits.
+- **Consequences:** the 256 KiB user region and 2 MiB `SWAP_MBYTES` hold few
+  swapped processes; swap size is revisited with the user region.
+
+## D17: Keep GCC's default m68k data alignment
+- **Decision:** use GCC's default m68k ABI, which aligns `int`, `long`,
+  pointers and floating types to 2 bytes. `-malign-int` is not used.
+- **Rationale:** performance is not critical yet. `-malign-int` would save bus
+  cycles on misaligned 32-bit and `double` accesses, but it must be applied to
+  every object, is a rarely tested GCC mode, and changes no on-disk layout:
+  `dinode`, `fs`, `direct` and the a.out `exec` header have identical field
+  offsets either way. Compatibility with existing binaries is not required.
+- **Consequences:** an `-malign-int` build is kept as a measured experiment in
+  the M6 performance item.

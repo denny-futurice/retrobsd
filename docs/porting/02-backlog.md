@@ -44,17 +44,14 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [x] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
       `../sys/m68k` and remove `include/pic32` (D13) (`target.mk`, `cross.mk`; `src/` now descends into
       `startup-m68k` and `libc/m68k`, which have no Makefiles yet)
-- [ ] Create the minimal `sys/m68k/` headers needed to compile `sys/kernel/`:
-      `machparam.h`, `cpu.h`, `float.h`, `limits.h`, `elf_machdep.h`,
-      `debug.h` and `endian.h`; adapt from the pic32 versions with big-endian
-      and m68k values
-      Handover: `sys/kernel` and `src/libc` include only `<machine/>`
-      `debug.h`, `cpu.h`, `limits.h`, `types.h`, `net_mac.h`, `machparam.h`,
-      `float.h`, `endian.h`, `elf_machdep.h`. `types.h` and `net_mac.h` are
-      not in the task list: check whether they are real or dead includes.
-      Big-endian, 32-bit `int`/`long`/pointers, 4-byte alignment for 68030,
-      hardware FPU (`-m68881`). Kernel build symlinks `machine -> ..` in the
-      board dir, userland uses `include/machine -> ../sys/m68k` (done).
+- [x] Create the minimal `sys/m68k/` headers needed to compile `sys/kernel/`:
+      `machparam.h`, `cpu.h`, `float.h`, `limits.h`, `elf_machdep.h` and
+      `debug.h`, plus an m68k `label_t` in `sys/include/types.h` (D16).
+      `float.h`/`limits.h` values are checked against GCC's predefined macros.
+      `endian.h`, `types.h` and `net_mac.h` are not needed (only included under
+      `__OpenBSD__`, `!_SYS_TYPES_H_` or `INET`). Trial compile: 47 of 51
+      `sys/kernel/*.c` build; the rest need the trap frame (M2) or K&R fixes.
+      GCC's default 2-byte `int`/`long`/pointer alignment is kept (D17).
 - [ ] Create `sys/m68k/files.kconf` (machine-independent section copied from
       pic32, `m68k/*` section written fresh, listing only existing files),
       `devices.kconf` and `Makefile.kconf`
@@ -70,8 +67,11 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       Link with `m68k-linux-gnu-ld -m m68kelf -static -T`; `crt0` must set
       `%sp` (QEMU gives none). Model the layout on `docs/porting/smoke/l.ld`.
 - [ ] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count
-      Handover: needs the headers above. Run via a board Makefile generated
-      with kconfig; record counts in `01-assessment.md` or here.
+      Handover: trial compile without `-Werror` gives 47 of 51 OK. Failing:
+      `exec_subr.c`, `sys_process.c`, `sys_pipe.c` use the MIPS trap frame
+      (`FRAME_*`, `ST_RP`, from `sys/pic32/io.h`), and `subr_log.c` has K&R
+      `-Wimplicit-int` plus a missing `struct devspec`. Do the real run via a
+      kconfig-generated board Makefile once `files.kconf` exists.
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
       Handover: 12 of 103 `src/libc/gen/*.c` fail, e.g. `abs.c`
       (`-Wimplicit-int` under `-Werror`). Pin `-std=gnu99` (already set).
@@ -118,3 +118,7 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 ## M6: Optional / future
 - [ ] 68030 PMMU for process protection
 - [ ] Larger memory configuration and tuning beyond the 128 KB heritage limits
+- [ ] Performance improvements, measured on QEMU before adopting any change.
+      Candidates:
+  - [ ] Alignment experiment: build everything with `-malign-int` (4-byte
+        `int`/`long`/`double`) and compare against the GCC default (D17)
