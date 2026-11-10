@@ -15,10 +15,10 @@ Status legend: `[ ]` open, `[x]` done.
 - [x] Freestanding smoke tests (`docs/porting/smoke/`): `hello` boots and prints
       on the Goldfish TTY, `fpu` checks hardware floating point (D12)
 - [x] Add GDB (`gdb-multiarch`) and `make check` to validate the tooling setup
-- [ ] Source layout (D13): create `sys/m68k/` and `sys/m68k/virt/`, and
-      `src/libc/m68k/`; leave `sys/pic32/` and `src/libc/mips/` untouched as
-      reference; retarget `include/machine` to `m68k` and replace the
-      `include/pic32` symlink with `include/m68k -> ../sys/m68k`
+- [ ] Source layout (D13): create the `sys/m68k/` and `sys/m68k/virt/` skeleton
+      with a README, plus `src/libc/m68k/` and `src/startup-m68k/` directories.
+      Add stubs only where a directory would otherwise be empty. Leave all
+      reference code (`sys/pic32/`, `src/libc/mips/`, ...) untouched
 - [ ] Build-file approach (D14): convert `target.mk`, `sys/pic32/Makefile.kconf`
       and `clang-config.mk` in place, as the first step of M1 (the M1 tasks
       below are already worded for this)
@@ -35,8 +35,18 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [ ] Convert `sys/pic32/Makefile.kconf` (the kernel build template) the same
       way, then regenerate the board `Makefile`s via `kconfig`
 - [ ] Delete `clang-config.mk` once nothing includes it
-- [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with an
-      ELF32 m68k linker script and `-m m68kelf` (kernel and userland)
+- [ ] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
+      `../sys/m68k` and remove `include/pic32` (D13)
+- [ ] Create the minimal `sys/m68k/` headers needed to compile `sys/kernel/`:
+      `machparam.h`, `cpu.h`, `float.h`, `limits.h`, `elf_machdep.h`,
+      `debug.h` and `endian.h`; adapt from the pic32 versions with big-endian
+      and m68k values
+- [ ] Create `sys/m68k/files.kconf` (machine-independent section copied from
+      pic32, `m68k/*` section written fresh, listing only existing files),
+      `devices.kconf` and `Makefile.kconf`
+- [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with
+      `-m m68kelf` and two ELF32 m68k linker scripts: `src/elf32-m68k.ld`
+      (userland) and `sys/m68k/virt/kernel.ld` (kernel)
 - [ ] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
 - [ ] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
@@ -44,8 +54,9 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `strip`, `ar`, `ranlib`, ...)
 
 ## M2: Hello from the kernel
-- [ ] Add `sys/m68k/` and a `sys/m68k/virt/` board (`Config`; hook into
-      `files.kconf` / `devices.kconf`; regenerate the board `Makefile`)
+- [ ] Add the `sys/m68k/virt/` board `Config`; generate the board `Makefile`
+      with `kconfig` (the `sys/m68k/` skeleton, headers and `files.kconf` /
+      `devices.kconf` / `Makefile.kconf` come from M0 and M1)
 - [ ] `startup.S`: vector table, stack setup, BSS clear, jump to `main`
 - [ ] Goldfish TTY driver; console output of a banner on QEMU
 - [ ] Document the QEMU invocation and a GDB recipe
