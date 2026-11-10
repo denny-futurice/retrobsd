@@ -34,11 +34,12 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       Clang/LLVM variables and `include clang-config.mk` (verified: `libc/gen`
       compiles to big-endian m68k ELF; `MACHINE` and the linker script are
       still MIPS, see tasks below)
-- [ ] Convert `sys/pic32/Makefile.kconf` (the kernel build template) the same
-      way, then regenerate the board `Makefile`s via `kconfig`. Template is
-      converted but unverified: `kconfig` needs `byacc` (not installed; bison
-      rejects its grammar)
-- [ ] Delete `clang-config.mk` once nothing includes it
+- [x] Convert `sys/pic32/Makefile.kconf` (the kernel build template) the same
+      way, then regenerate the board `Makefile`s via `kconfig` (verified:
+      `kconfig` builds with `byacc`; `explorer16` and `olimex` regenerated
+      with GCC and no Clang/ihex/pic32prog references)
+- [ ] Delete `clang-config.mk` once nothing includes it (only the PIC32
+      `sys/pic32/attic/*/Makefile` still do)
 - [ ] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
       `../sys/m68k` and remove `include/pic32` (D13)
 - [ ] Create the minimal `sys/m68k/` headers needed to compile `sys/kernel/`:
