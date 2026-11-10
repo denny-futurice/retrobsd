@@ -40,6 +40,7 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       with GCC and no Clang/ihex/pic32prog references)
 - [ ] Delete `clang-config.mk` once nothing includes it (only the PIC32
       `sys/pic32/attic/*/Makefile` still do)
+      Handover: blocked on D11 (PIC32 reference stays); leave open.
 - [x] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
       `../sys/m68k` and remove `include/pic32` (D13) (`target.mk`, `cross.mk`; `src/` now descends into
       `startup-m68k` and `libc/m68k`, which have no Makefiles yet)
@@ -47,14 +48,33 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `machparam.h`, `cpu.h`, `float.h`, `limits.h`, `elf_machdep.h`,
       `debug.h` and `endian.h`; adapt from the pic32 versions with big-endian
       and m68k values
+      Handover: `sys/kernel` and `src/libc` include only `<machine/>`
+      `debug.h`, `cpu.h`, `limits.h`, `types.h`, `net_mac.h`, `machparam.h`,
+      `float.h`, `endian.h`, `elf_machdep.h`. `types.h` and `net_mac.h` are
+      not in the task list: check whether they are real or dead includes.
+      Big-endian, 32-bit `int`/`long`/pointers, 4-byte alignment for 68030,
+      hardware FPU (`-m68881`). Kernel build symlinks `machine -> ..` in the
+      board dir, userland uses `include/machine -> ../sys/m68k` (done).
 - [ ] Create `sys/m68k/files.kconf` (machine-independent section copied from
       pic32, `m68k/*` section written fresh, listing only existing files),
       `devices.kconf` and `Makefile.kconf`
+      Handover: `tools/kconfig` reads `../files.kconf`, `../devices.kconf`,
+      `../Makefile.kconf` relative to the board dir, with paths relative to
+      `sys/`. `sys/pic32/Makefile.kconf` is already GCC-converted: copy it to
+      `sys/m68k/` and drop remaining PIC32 bits. kconfig builds with `byacc`
+      (`make -C tools/kconfig`).
 - [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with
       `-m m68kelf` and two ELF32 m68k linker scripts: `src/elf32-m68k.ld`
       (userland) and `sys/m68k/virt/kernel.ld` (kernel)
+      Handover: `target.mk` `LDFLAGS` still points at `src/elf32-mips.ld`.
+      Link with `m68k-linux-gnu-ld -m m68kelf -static -T`; `crt0` must set
+      `%sp` (QEMU gives none). Model the layout on `docs/porting/smoke/l.ld`.
 - [ ] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count
+      Handover: needs the headers above. Run via a board Makefile generated
+      with kconfig; record counts in `01-assessment.md` or here.
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
+      Handover: 12 of 103 `src/libc/gen/*.c` fail, e.g. `abs.c`
+      (`-Wimplicit-int` under `-Werror`). Pin `-std=gnu99` (already set).
 - [ ] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
       (`as`, `ld`, `aout`, `ccom`, `lcc`, `lccom`, `smlrc`, `adb`, `nm`, `size`,
       `strip`, `ar`, `ranlib`, ...)
