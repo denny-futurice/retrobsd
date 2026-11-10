@@ -1,22 +1,23 @@
 #
-# Makefile for RetroBSD, pic32 target
+# Makefile for RetroBSD, m68k target (GCC, see docs/porting decision D14)
 #
 # DEBUG is set to -g by kconfig if debugging is requested (kconfig -g).
 #
-include ../../../clang-config.mk
+# Cross toolchain prefix.  Debian has no m68k-elf package, so the m68k-linux-gnu GCC
+# is used freestanding.  Override on the command line or in Makefile.user if needed.
+CROSS           ?= m68k-linux-gnu-
 
-AS              = $(LLVMBIN)clang -target mipsel -mcpu=mips32r2 ${DEBUG}
-CC              =  -mabi=o32 -mfloat-abi=soft \
-                  -nostdinc -fshort-double -fomit-frame-pointer -finline-hint-functions -I$(TOPSRC)/include
-CC              = $(LLVMBIN)clang -target mipsel -mcpu=mips32r2 -mabi=o32 -mfloat-abi=soft \
+AS              = $(CROSS)gcc ${DEBUG}
+CC              = $(CROSS)gcc -mcpu=68030 -m68881 -std=gnu99 -ffreestanding \
+                  -fno-pic -fno-pie -fno-stack-protector \
                   ${DEBUG} -nostdinc -fno-builtin -Werror -Wall
-CPP             = $(LLVMBIN)clang-cpp
-LD              = $(LLD) -m elf32ltsmip
+CPP             = $(CROSS)cpp
+LD              = $(CROSS)ld -m m68kelf
 LDFLAGS         = -nostdlib -T ../${LDSCRIPT}
-SIZE            = $(LLVMBIN)llvm-size
-OBJCOPY         = $(LLVMBIN)llvm-objcopy
-OBJDUMP         = $(LLVMBIN)llvm-objdump
-NM              = $(LLVMBIN)llvm-nm
+SIZE            = $(CROSS)size
+OBJCOPY         = $(CROSS)objcopy
+OBJDUMP         = $(CROSS)objdump
+NM              = $(CROSS)nm
 
 # sources are located via $S relative to the compilation directory
 S               = ../..
@@ -49,9 +50,7 @@ SYSTEM_LD_HEAD  = sh ../newvers.sh > vers.c; ${CC} $(CFLAGS) -c vers.c; rm -f $@
 SYSTEM_LD       = -@echo ${LD} ${LDFLAGS} '$${SYSTEM_OBJ}' vers.o -o $@; \
                   ${LD} ${LDFLAGS} ${SYSTEM_OBJ} vers.o -o $@
 SYSTEM_LD_TAIL  = ${SIZE} $@; \
-                  $(OBJCOPY) -O ihex $@ $(basename $@).hex; \
-                  $(OBJCOPY) -O binary -R .boot -R .config $@ $(basename $@).bin; \
-                  $(OBJCOPY) -O binary --only-section .boot $@ boot.bin; \
+                  $(OBJCOPY) -O binary $@ $(basename $@).bin; \
                   $(OBJDUMP) -d -S $@ > $(basename $@).dis; \
                   $(NM) -n $@ > $(basename $@).nm
 
@@ -76,9 +75,6 @@ ioconf.c: Config ../../../tools/kconfig/kconfig | sys machine
 # dependency: two rules invoking kconfig would race under make -j.
 swapunix.c: ioconf.c
 	@:
-
-load:   unix.elf
-	pic32prog unix.hex
 
 machine:
 	ln -s .. $@

@@ -19,9 +19,9 @@ Status legend: `[ ]` open, `[x]` done.
       with a README, plus `src/libc/m68k/` and `src/startup-m68k/` directories.
       Add stubs only where a directory would otherwise be empty. Leave all
       reference code (`sys/pic32/`, `src/libc/mips/`, ...) untouched
-- [ ] Build-file approach (D14): convert `target.mk`, `sys/pic32/Makefile.kconf`
+- [x] Build-file approach (D14): convert `target.mk`, `sys/pic32/Makefile.kconf`
       and `clang-config.mk` in place, as the first step of M1 (the M1 tasks
-      below are already worded for this)
+      below are already worded for this); `clang-config.mk` is kept for now
 - [x] Branch policy (D15): `retrobsd-68k` stays the long-lived branch on the fork
       and `master` an untouched upstream snapshot; nothing to implement beyond
       keeping to it (accepted)
@@ -29,11 +29,15 @@ Status legend: `[ ]` open, `[x]` done.
 ## M1: Build system and sizing
 These tasks assume the in-place approach proposed in M0 (D11): the existing build files
 are converted for m68k, not duplicated, and the PIC32 build stops working.
-- [ ] Convert `target.mk` in place to GCC: `CROSS = m68k-linux-gnu-`,
+- [x] Convert `target.mk` in place to GCC: `CROSS = m68k-linux-gnu-`,
       `-mcpu=68030 -m68881` and the freestanding flags from D10; remove the
-      Clang/LLVM variables and `include clang-config.mk`
+      Clang/LLVM variables and `include clang-config.mk` (verified: `libc/gen`
+      compiles to big-endian m68k ELF; `MACHINE` and the linker script are
+      still MIPS, see tasks below)
 - [ ] Convert `sys/pic32/Makefile.kconf` (the kernel build template) the same
-      way, then regenerate the board `Makefile`s via `kconfig`
+      way, then regenerate the board `Makefile`s via `kconfig`. Template is
+      converted but unverified: `kconfig` needs `byacc` (not installed; bison
+      rejects its grammar)
 - [ ] Delete `clang-config.mk` once nothing includes it
 - [ ] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
       `../sys/m68k` and remove `include/pic32` (D13)

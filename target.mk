@@ -4,19 +4,19 @@ RELEASE     = 0.0
 BUILD       = $(shell git rev-list HEAD --count)
 VERSION     = $(RELEASE)-$(BUILD)
 
-include $(TOPSRC)/clang-config.mk
+# Cross toolchain prefix.  Debian has no m68k-elf package, so the m68k-linux-gnu GCC
+# is used freestanding.  Override on the command line or in Makefile.user if needed.
+CROSS       ?= m68k-linux-gnu-
 
-CC		= $(LLVMBIN)clang -target mipsel -mcpu=mips32r2 -mabi=o32 -msoft-float \
-                  -fomit-frame-pointer -finline-hint-functions -I$(TOPSRC)/include \
-                  -Wno-builtin-requires-header -fno-builtin-wcslen -Werror
-CXX             = $(LLVMBIN)clang++ -target mipsel -mcpu=mips32r2 -mabi=o32 -msoft-float \
-                  -fomit-frame-pointer -finline-hint-functions -I$(TOPSRC)/include
-LD		= $(LLD) -m elf32ltsmip
-AR		= $(LLVMBIN)llvm-ar
-RANLIB          = $(LLVMBIN)llvm-ranlib
-SIZE            = $(LLVMBIN)llvm-size
-NM              = $(LLVMBIN)llvm-nm
-OBJDUMP         = $(LLVMBIN)llvm-objdump --mcpu=mips32r2
+CC		= $(CROSS)gcc -mcpu=68030 -m68881 -std=gnu99 -ffreestanding \
+                  -fno-pic -fno-pie -fno-stack-protector \
+                  -fomit-frame-pointer -I$(TOPSRC)/include
+LD		= $(CROSS)ld -m m68kelf
+AR		= $(CROSS)ar
+RANLIB          = $(CROSS)ranlib
+SIZE            = $(CROSS)size
+NM              = $(CROSS)nm
+OBJDUMP         = $(CROSS)objdump
 AS		= $(CC) -x assembler-with-cpp -c
 YACC            = byacc
 LEX             = flex
