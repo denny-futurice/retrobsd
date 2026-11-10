@@ -52,26 +52,28 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `__OpenBSD__`, `!_SYS_TYPES_H_` or `INET`). Trial compile: 47 of 51
       `sys/kernel/*.c` build; the rest need the trap frame (M2) or K&R fixes.
       GCC's default 2-byte `int`/`long`/pointer alignment is kept (D17).
-- [ ] Create `sys/m68k/files.kconf` (machine-independent section copied from
+- [x] Create `sys/m68k/files.kconf` (machine-independent section copied from
       pic32, `m68k/*` section written fresh, listing only existing files),
-      `devices.kconf` and `Makefile.kconf`
-      Handover: `tools/kconfig` reads `../files.kconf`, `../devices.kconf`,
-      `../Makefile.kconf` relative to the board dir, with paths relative to
-      `sys/`. `sys/pic32/Makefile.kconf` is already GCC-converted: copy it to
-      `sys/m68k/` and drop remaining PIC32 bits. kconfig builds with `byacc`
-      (`make -C tools/kconfig`).
+      `devices.kconf` and `Makefile.kconf`. Done: the `m68k/*` section and
+      `devices.kconf` are still empty (no m68k sources or block drivers yet);
+      `Makefile.kconf` moved from `sys/pic32/` (D14) without the PIC32
+      `devcfg.c`/`*.hex` rules; `newvers.sh` copied. `tools/kconfig` accepts
+      `architecture "m68k"`. A board `Config` needs a `config ... root on`
+      device from `devices.kconf` before kconfig emits a link target.
 - [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with
       `-m m68kelf` and two ELF32 m68k linker scripts: `src/elf32-m68k.ld`
       (userland) and `sys/m68k/virt/kernel.ld` (kernel)
       Handover: `target.mk` `LDFLAGS` still points at `src/elf32-mips.ld`.
       Link with `m68k-linux-gnu-ld -m m68kelf -static -T`; `crt0` must set
       `%sp` (QEMU gives none). Model the layout on `docs/porting/smoke/l.ld`.
-- [ ] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count
-      Handover: trial compile without `-Werror` gives 47 of 51 OK. Failing:
-      `exec_subr.c`, `sys_process.c`, `sys_pipe.c` use the MIPS trap frame
-      (`FRAME_*`, `ST_RP`, from `sys/pic32/io.h`), and `subr_log.c` has K&R
-      `-Wimplicit-int` plus a missing `struct devspec`. Do the real run via a
-      kconfig-generated board Makefile once `files.kconf` exists.
+- [x] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count.
+      Result via a kconfig-generated board Makefile (`-Wall -Werror`): 45 of
+      48 standard files plus `ioconf.c` compile with no warnings. The other
+      3 fail (37 errors) only on the MIPS trap frame: `exec_subr.c`,
+      `sys_process.c` (`FRAME_*`, `ST_RP` from `sys/pic32/io.h`) and
+      `sys_pipe.c` (`#error` for unknown architecture); these move with the
+      trap frame to M3. Optional `subr_log.c` (K&R `-Wimplicit-int`, missing
+      `struct devspec`) and `tty_pty.c` were not built.
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
       Handover: 12 of 103 `src/libc/gen/*.c` fail, e.g. `abs.c`
       (`-Wimplicit-int` under `-Werror`). Pin `-std=gnu99` (already set).
@@ -89,6 +91,9 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 
 ## M3: Traps, syscalls, scheduling
 - [ ] Exception and trap handling (`exception.c` equivalent)
+- [ ] m68k trap frame layout (`FRAME_*` offsets, replacing MIPS ones from
+      `sys/pic32/io.h`) and its MI users: `exec_subr.c`, `sys_process.c`, and
+      the pipe return value in `sys_pipe.c`
 - [ ] Goldfish PIC and timer; clock tick; `spl*` mapped to the IPL mask
 - [ ] `trap #0` syscall path; signals and `sigreturn`
 - [ ] Context switch, `copyin`/`copyout`

@@ -168,6 +168,9 @@ Config_spec:
             if (strcmp($2, "pic32") == 0) {
                 arch = ARCH_PIC32;
                 archname = "pic32";
+            } else if (strcmp($2, "m68k") == 0) {
+                arch = ARCH_M68K;
+                archname = "m68k";
             } else
                 yyerror("Unknown architecture");
         }

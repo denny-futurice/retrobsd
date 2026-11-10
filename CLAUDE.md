@@ -46,9 +46,11 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   Watch for byte-order assumptions in `tools/fsutil`, `tools/elf2aout` and on-disk formats.
 - **Commits:** small and focused, with the trailer
   `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
-- `target.mk` and `sys/pic32/Makefile.kconf` are converted to m68k GCC (D14), so the PIC32 build no
-  longer works. `MACHINE`, linker scripts and `sys/m68k/` headers are still pending (M1), so the
-  top-level `make` does not yet build for m68k either. `clang-config.mk` is kept as reference.
+- `target.mk` and the kernel template `sys/m68k/Makefile.kconf` (moved from `sys/pic32/`) are
+  converted to m68k GCC (D14), so the PIC32 build no longer works. `tools/kconfig` accepts
+  `architecture "m68k"` and reads `sys/m68k/{files,devices,Makefile}.kconf`. Linker scripts, the
+  trap frame and `startup.S` are still pending, so the top-level `make` does not yet build for
+  m68k either. `clang-config.mk` is kept as reference.
 
 ## What this is (PIC32 system, reference)
 

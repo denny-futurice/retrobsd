@@ -1,0 +1,5 @@
+#
+# List of block devices and majors.
+# No m68k block drivers exist yet; entries are added with the first
+# disk driver (virtio block on QEMU virt).
+#

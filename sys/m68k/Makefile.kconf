@@ -42,9 +42,6 @@ COMPILE_S       = ${CC} -c ${DEFS} $<
 #	${SYSTEM_LD} swapxxx.o
 #	${SYSTEM_LD_TAIL}
 SYSTEM_OBJ      = startup.o ${OBJS} ioconf.o
-ifeq (devcfg.c,$(wildcard devcfg.c))
-    SYSTEM_OBJ  += devcfg.o
-endif
 SYSTEM_DEP      = Makefile ioconf.c | machine sys .deps
 SYSTEM_LD_HEAD  = sh ../newvers.sh > vers.c; ${CC} $(CFLAGS) -c vers.c; rm -f $@
 SYSTEM_LD       = -@echo ${LD} ${LDFLAGS} '$${SYSTEM_OBJ}' vers.o -o $@; \
@@ -60,7 +57,7 @@ clean:
 	rm -rf *.elf *.o *.nm *.dis *.bin
 
 clean-all: clean
-	rm -f *.h *.hex ioconf.c swap*.c vers.c machine sys .deps
+	rm -f *.h ioconf.c swap*.c vers.c machine sys .deps
 
 .PHONY: reconfig
 
@@ -69,7 +66,6 @@ reconfig: ioconf.c
 ioconf.c: Config ../../../tools/kconfig/kconfig | sys machine
 	../../../tools/kconfig/kconfig Config
 	$(MAKE) clean
-	rm -f *.hex
 
 # Written by the same kconfig run as ioconf.c above.  Keep it a plain
 # dependency: two rules invoking kconfig would race under make -j.
@@ -90,8 +86,6 @@ startup.o: ../startup.S ${SYSTEM_DEP}
 
 ioconf.o: ioconf.c  ${SYSTEM_DEP}
 	${COMPILE_C}
-
-devcfg.o: devcfg.c ${SYSTEM_DEP}
 
 %RULES
 

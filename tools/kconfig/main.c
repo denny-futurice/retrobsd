@@ -81,6 +81,8 @@ int main(int argc, char **argv)
 
     switch (arch) {
     case ARCH_PIC32:
+    case ARCH_M68K:
+        /* The ioconf.c format is the same; pins are only checked if used. */
         pic32_ioconf();
         break;
 
