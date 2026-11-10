@@ -1,0 +1,4 @@
+QEMU "virt" board (qemu-system-m68k -M virt -cpu m68030).
+
+Will hold Config, the Makefile generated from it by kconfig, and the kernel
+linker script kernel.ld (see docs/porting/, decision D13).

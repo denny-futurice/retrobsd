@@ -1,0 +1,4 @@
+m68k C runtime start-up (crt0) for userland programs, as in ../startup-mips
+(see docs/porting/, decision D13).
+
+Selected by MACHINE = m68k in target.mk; empty until M5.

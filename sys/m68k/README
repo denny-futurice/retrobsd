@@ -1,0 +1,12 @@
+Motorola 68030 machine-dependent kernel code (see docs/porting/, decision D13).
+
+Layout:
+
+    files.kconf, devices.kconf, Makefile.kconf, Config.generic
+                    - read by kconfig from "../" relative to a board directory
+                      (added in M1)
+    *.c, *.h, *.S   - machine-dependent kernel code, flat; board-specific
+                      drivers use a prefix (gf_*.c Goldfish, virtio_*.c)
+    virt/           - QEMU "virt" board: Config, generated Makefile, kernel.ld
+
+Empty so far: files are added as the backlog milestones reach them.

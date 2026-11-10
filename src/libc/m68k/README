@@ -1,0 +1,5 @@
+m68k assembly and machine-dependent sources for the RetroBSD libc: setjmp,
+syscall stubs, htonl/htons and optional string routines, in gen/, string/ and
+sys/ subdirectories as in ../mips (see docs/porting/, decision D13).
+
+Selected by MACHINE = m68k in target.mk; empty until M5.

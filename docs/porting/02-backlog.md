@@ -15,7 +15,7 @@ Status legend: `[ ]` open, `[x]` done.
 - [x] Freestanding smoke tests (`docs/porting/smoke/`): `hello` boots and prints
       on the Goldfish TTY, `fpu` checks hardware floating point (D12)
 - [x] Add GDB (`gdb-multiarch`) and `make check` to validate the tooling setup
-- [ ] Source layout (D13): create the `sys/m68k/` and `sys/m68k/virt/` skeleton
+- [x] Source layout (D13): create the `sys/m68k/` and `sys/m68k/virt/` skeleton
       with a README, plus `src/libc/m68k/` and `src/startup-m68k/` directories.
       Add stubs only where a directory would otherwise be empty. Leave all
       reference code (`sys/pic32/`, `src/libc/mips/`, ...) untouched
