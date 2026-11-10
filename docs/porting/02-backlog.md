@@ -83,9 +83,16 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
       Handover: 12 of 103 `src/libc/gen/*.c` fail, e.g. `abs.c`
       (`-Wimplicit-int` under `-Werror`). Pin `-std=gnu99` (already set).
-- [ ] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
+- [x] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
       (`as`, `ld`, `aout`, `ccom`, `lcc`, `lccom`, `smlrc`, `adb`, `nm`, `size`,
       `strip`, `ar`, `ranlib`, ...)
+      Done (D8, D18): `adb aout ar as cc cpp lcc lcpp ld nm ranlib smallc
+      smlrc`, `size`/`strip` and the PIC32 hardware demos (`adc-demo`,
+      `glcdtest`, `portio`, `pwm`, `wiznet`) are kept as commented-out
+      `SUBDIR +=` / `STD +=` lines; uncommenting one re-enables that group
+      (checked with `make -n` both ways). `ccom`/`lccom` were never built. A
+      real build needs `crt0`, libc and `elf2aout` (M4/M5).
+      `rootfs.manifest` still names the disabled programs (see M4).
 
 ## M2: Hello from the kernel
 - [ ] Add the `sys/m68k/virt/` board `Config`; generate the board `Makefile`
@@ -119,7 +126,12 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       header, directory entries. Already checked: `dinode`, `fs`, `direct` and
       the a.out `exec` header have the same field offsets with 2- and 4-byte
       alignment; comparing against the host build of `fsutil` is still open
-- [ ] Build a root filesystem image; `fsutil --check` passes
+- [ ] Build a root filesystem image; `fsutil --check` passes. Drop the
+      entries for programs disabled in `src/cmd/Makefile` from
+      `rootfs.manifest`: the native toolchain (D8) `/bin/{adb,aout,ar,as,cc,
+      cpp,lcc,lcpp,ld,nm,ranlib,scc,size,strip}`, `/libexec/{smallc,smlrc}`,
+      `/include/smallc` and the smallc examples, and the PIC32 hardware
+      programs (D18) (`fsutil` only warns on missing files)
 - [ ] Mount the root filesystem on QEMU; configure swap
 
 ## M5: Libc and userland

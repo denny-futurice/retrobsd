@@ -10,12 +10,12 @@ CFLAGS          += -Werror
 
 # Programs that live in subdirectories, and have makefiles of their own.
 # /bin
-SUBDIR		= adb adc-demo aout ar as awk basic calendar cc chflags \
-                  chpass cpp dc diff emg env fdisk find fold forth \
-                  fstat glcdtest hostname id la lcc lcpp ld ls login make \
-                  man md5 med more nm passwd pdc picoc portio printf pwm \
-                  ranlib re renice retroforth scm sed setty sh sl smallc \
-                  smlrc smux stty sysctl test uname wiznet xargs \
+SUBDIR		= awk basic calendar chflags \
+                  chpass dc diff emg env fdisk find fold forth \
+                  fstat hostname id la ls login make \
+                  man md5 med more passwd pdc picoc printf \
+                  re renice retroforth scm sed setty sh sl \
+                  smux stty sysctl test uname xargs \
                   zmodem gtest msec cron compress date2 tip \
                   talloc uucp viless virus yacc
 
@@ -36,7 +36,7 @@ SCRIPT		= false nohup true #lorder mkdep
 STD		= basename cal cat cb chgrp chmod cmp col comm cp dd \
                   diskspeed du echo ed fgrep file grep head hostid join \
                   kill last ln mesg mkdir mv nice od pagesize pr printenv \
-                  pwd rev rm rmail rmdir size sleep sort split sum sync \
+                  pwd rev rm rmail rmdir sleep sort split sum sync \
                   tail tar tee time touch tr tsort tty uniq w wc whereis who
 
 # C programs that live in the current directory and need explicit make lines.
@@ -59,10 +59,18 @@ KMEM		= ps iostat vmstat
 #
 TTY		= wall write
 
-# 'strip' is handled specially because 'install -s' now uses 'strip' and
-# thus we can't do a 'install -s strip /bin/strip' without an error.
+# Disabled for m68k.  Uncomment a line to build and install that group again.
 #
-BINS		= $(STD) $(NSTD) $(SETUID) $(OPERATOR) $(KMEM) $(TTY) $(SCRIPT) strip
+# Native compilers, binutils and debugger (D8).  'strip' used to be kept out
+# of STD and installed last, as 'install -s' ran /bin/strip; that no longer
+# applies with a cross build.
+#SUBDIR		+= adb aout ar as cc cpp lcc lcpp ld nm ranlib smallc smlrc
+#STD		+= size strip
+#
+# PIC32 hardware demos and drivers with no QEMU virt equivalent (D18).
+#SUBDIR		+= adc-demo glcdtest portio pwm wiznet
+
+BINS		= $(STD) $(NSTD) $(SETUID) $(OPERATOR) $(KMEM) $(TTY) $(SCRIPT)
 
 all:		$(SUBDIR) $(BINS)
 
@@ -71,7 +79,7 @@ $(SUBDIR):	FRC
 
 FRC:
 
-# $(STD) $(SETUID) $(KMEM) $(OPERATOR) $(TTY) strip
+# $(STD) $(SETUID) $(KMEM) $(OPERATOR) $(TTY)
 %: %.c
 		$(CC) $(CFLAGS) -c $<
 		$(LD) $(LDFLAGS) -o $@.elf $@.o $(LIBS)
@@ -89,7 +97,7 @@ $(SCRIPT):
 		install -c $@.sh $@
 
 install:	$(BINS)
-		install $(STD) $(NSTD) strip $(DESTDIR)/bin/
+		install $(STD) $(NSTD) $(DESTDIR)/bin/
 		-for i in $(SUBDIR); do \
 			$(MAKE) -C $$i $(MFLAGS) DESTDIR=$(DESTDIR) install; done
 		-for i in $(SCRIPT); do install $$i.sh $(DESTDIR)/bin/$$i; done

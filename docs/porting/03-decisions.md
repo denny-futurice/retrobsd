@@ -194,3 +194,14 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   offsets either way. Compatibility with existing binaries is not required.
 - **Consequences:** an `-malign-int` build is kept as a measured experiment in
   the M6 performance item.
+
+## D18: PIC32 hardware programs are not built; disabled programs stay listed
+- **Context:** `src/cmd` has demos and tools for PIC32 peripherals: `adc-demo`
+  (ADC), `glcdtest` (graphic LCD), `portio` (GPIO), `pwm` and `wiznet`
+  (WIZnet Ethernet). QEMU virt has no equivalent hardware.
+- **Decision:** they are not built for m68k. Programs left out of the build,
+  these and the native toolchain (D8), are kept as commented-out
+  `SUBDIR +=` / `STD +=` lines in `src/cmd/Makefile`, so a group is re-enabled
+  by uncommenting one line. Their sources stay in the tree (D11).
+- **Consequences:** their `rootfs.manifest` entries are removed with the M4
+  root filesystem task.
