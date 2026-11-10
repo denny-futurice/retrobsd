@@ -40,8 +40,9 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       with GCC and no Clang/ihex/pic32prog references)
 - [ ] Delete `clang-config.mk` once nothing includes it (only the PIC32
       `sys/pic32/attic/*/Makefile` still do)
-- [ ] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
-      `../sys/m68k` and remove `include/pic32` (D13)
+- [x] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
+      `../sys/m68k` and remove `include/pic32` (D13) (`target.mk`, `cross.mk`; `src/` now descends into
+      `startup-m68k` and `libc/m68k`, which have no Makefiles yet)
 - [ ] Create the minimal `sys/m68k/` headers needed to compile `sys/kernel/`:
       `machparam.h`, `cpu.h`, `float.h`, `limits.h`, `elf_machdep.h`,
       `debug.h` and `endian.h`; adapt from the pic32 versions with big-endian

@@ -1,4 +1,4 @@
-MACHINE     = mips
+MACHINE     = m68k
 DESTDIR     ?= $(TOPSRC)
 RELEASE     = 0.0
 BUILD       = $(shell git rev-list HEAD --count)

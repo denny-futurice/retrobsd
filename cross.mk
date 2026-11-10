@@ -1,5 +1,5 @@
 DESTDIR		= /usr/local/retrobsd
-MACHINE		= mips
+MACHINE		= m68k
 
 CC		= gcc -m32
 
