@@ -171,6 +171,11 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     `0x00080000`-`0x000bffff` (256 KiB, `USER_DATA_START`/`USER_DATA_END`).
   - `USIZE = 4096` (PIC32: 3072), to leave room for 68030 exception frames on
     the kernel stack.
+  - Inside the kernel region (`sys/m68k/virt/kernel.ld`): vector table at 0
+    (VBR stays 0), kernel image from `0x400`, then `u0` and `u` as the top two
+    `USIZE` blocks, with the kernel stack ending at `u_end` =
+    `KERNEL_DATA_END`, as on PIC32. User programs are linked at
+    `USER_DATA_START` by `src/elf32-m68k.ld`.
   - Two interrupt levels, as on PIC32: `spl*()` either masks all interrupts
     (IPL 7) or none, via the status register. Real Goldfish PIC levels come
     later if needed.

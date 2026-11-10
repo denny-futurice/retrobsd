@@ -22,11 +22,11 @@ $(SUBDIR):	FRC | $(LIBS)
 
 FRC:
 
-install:        elf32-mips.ld
+install:        elf32-m68k.ld
 		-for i in $(SUBDIR); do \
 			$(MAKE) -C $$i DESTDIR=$(DESTDIR) all && \
 			$(MAKE) -C $$i DESTDIR=$(DESTDIR) install; done
-#		cp -p elf32-mips.ld $(DESTDIR)/lib/elf32-mips.ld
+#		cp -p elf32-m68k.ld $(DESTDIR)/lib/elf32-m68k.ld
 
 clean:
 		rm -f a.out core *.s *.o *.a *~

@@ -60,12 +60,18 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `devcfg.c`/`*.hex` rules; `newvers.sh` copied. `tools/kconfig` accepts
       `architecture "m68k"`. A board `Config` needs a `config ... root on`
       device from `devices.kconf` before kconfig emits a link target.
-- [ ] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with
+- [x] Replace `src/elf32-mips.ld` and the `elf32ltsmip` linker emulation with
       `-m m68kelf` and two ELF32 m68k linker scripts: `src/elf32-m68k.ld`
       (userland) and `sys/m68k/virt/kernel.ld` (kernel)
-      Handover: `target.mk` `LDFLAGS` still points at `src/elf32-mips.ld`.
-      Link with `m68k-linux-gnu-ld -m m68kelf -static -T`; `crt0` must set
-      `%sp` (QEMU gives none). Model the layout on `docs/porting/smoke/l.ld`.
+      Done: `target.mk` and `src/Makefile` use `elf32-m68k.ld` (`elf32-mips.ld`
+      kept, D13). Userland: linked at `USER_DATA_START`, text (RX) and
+      data+bss (RW) as two `PT_LOAD` segments for `elf2aout`, `_end` for
+      `sbrk`. Kernel: `.vectors` at 0, image from `0x400`, `u0`/`u`/`u_end`
+      at the top of the region (D16), asserts the image ends below `u0`.
+      Verified: the `hello` and `fpu` smoke tests boot on QEMU with
+      `kernel.ld`, and the 47 compiling `sys/kernel` objects link to ~70 KiB.
+      The a.out conversion is untested: `elf2aout` cannot read big-endian ELF
+      yet (M4).
 - [x] Compile `sys/kernel/*.c` with GCC (no link); record the error/warning count.
       Result via a kconfig-generated board Makefile (`-Wall -Werror`): 45 of
       48 standard files plus `ioconf.c` compile with no warnings. The other

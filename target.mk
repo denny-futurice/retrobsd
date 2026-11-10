@@ -29,7 +29,7 @@ ELF2AOUT	= $(TOPSRC)/tools/elf2aout/elf2aout
 
 CFLAGS		= -Os -nostdinc
 
-LDFLAGS		= --nmagic -T$(TOPSRC)/src/elf32-mips.ld $(TOPSRC)/src/crt0.o -L$(TOPSRC)/src
+LDFLAGS		= --nmagic -T$(TOPSRC)/src/elf32-m68k.ld $(TOPSRC)/src/crt0.o -L$(TOPSRC)/src
 LIBS		= -lc
 
 # Enable mips16e instruction set by default
