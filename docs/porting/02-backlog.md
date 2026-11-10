@@ -27,7 +27,7 @@ Status legend: `[ ]` open, `[x]` done.
       keeping to it (accepted)
 
 ## M1: Build system and sizing
-These tasks assume the in-place approach proposed in M0 (D11): the existing build files
+These tasks assume the in-place approach proposed in M0 (D14): the existing build files
 are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [x] Convert `target.mk` in place to GCC: `CROSS = m68k-linux-gnu-`,
       `-mcpu=68030 -m68881` and the freestanding flags from D10; remove the
@@ -50,7 +50,7 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `float.h`/`limits.h` values are checked against GCC's predefined macros.
       `endian.h`, `types.h` and `net_mac.h` are not needed (only included under
       `__OpenBSD__`, `!_SYS_TYPES_H_` or `INET`). Trial compile: 47 of 51
-      `sys/kernel/*.c` build; the rest need the trap frame (M2) or K&R fixes.
+      `sys/kernel/*.c` build; the rest need the trap frame (M3) or K&R fixes.
       GCC's default 2-byte `int`/`long`/pointer alignment is kept (D17).
 - [x] Create `sys/m68k/files.kconf` (machine-independent section copied from
       pic32, `m68k/*` section written fresh, listing only existing files),
@@ -84,7 +84,10 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 ## M2: Hello from the kernel
 - [ ] Add the `sys/m68k/virt/` board `Config`; generate the board `Makefile`
       with `kconfig` (the `sys/m68k/` skeleton, headers and `files.kconf` /
-      `devices.kconf` / `Makefile.kconf` come from M0 and M1)
+      `devices.kconf` / `Makefile.kconf` come from M0 and M1). kconfig only
+      emits the kernel link target for a `config unix root on <dev>` line,
+      and `<dev>` must be listed in `devices.kconf`; the virtio block driver
+      is M4, so decide whether to reserve its entry early
 - [ ] `startup.S`: vector table, stack setup, BSS clear, jump to `main`
 - [ ] Goldfish TTY driver; console output of a banner on QEMU
 - [ ] Document the QEMU invocation and a GDB recipe
@@ -106,8 +109,10 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [ ] virtio-mmio block driver
 - [ ] Endianness audit of `tools/fsutil` and the on-disk format
 - [ ] Big-endian ELF32 / EM_68K support in `tools/elf2aout`; m68k a.out magic
-- [ ] Audit struct layout (2-byte `int` alignment): `stat`, `utmp`, a.out
-      header, directory entries
+- [ ] Audit struct layout (2-byte `int` alignment, D17): `stat`, `utmp`, a.out
+      header, directory entries. Already checked: `dinode`, `fs`, `direct` and
+      the a.out `exec` header have the same field offsets with 2- and 4-byte
+      alignment; comparing against the host build of `fsutil` is still open
 - [ ] Build a root filesystem image; `fsutil --check` passes
 - [ ] Mount the root filesystem on QEMU; configure swap
 

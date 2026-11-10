@@ -8,7 +8,10 @@ Out of scope: Amiga hardware, and the native on-target compilers and tools
 Everything is cross-built on the host.
 
 This is a desk assessment based on a survey of the repository (file sizes and
-structure). Nothing has been built yet.
+structure), written before any code was built. Progress is tracked in
+[02-backlog.md](02-backlog.md) and later choices in
+[03-decisions.md](03-decisions.md); notes marked *Update* record where
+they changed this text.
 
 **Verdict: viable and well bounded.** A minimal port that boots to a shell on
 QEMU is estimated at about 2-3 person-months.
@@ -29,6 +32,9 @@ QEMU is estimated at about 2-3 person-months.
   `sys/pic32/Makefile.kconf`, replacing Clang-only options and
   `clang-config.mk`; add an ELF m68k linker script. Expect a first pass of
   `-Werror` fixes for old K&R-style code under GCC.
+  *Update (M1):* the build files were converted in place rather than
+  duplicated (D14); the kernel template now lives in `sys/m68k/`. 45 of the
+  48 standard `sys/kernel` files compile with `-Werror`.
 - `tools/elf2aout` needs big-endian ELF32 and EM_68K support (about 800 lines,
   mechanical).
 
@@ -69,7 +75,8 @@ QEMU is estimated at about 2-3 person-months.
 - Stock m68k ABI (stack arguments, result in `d0`); ILP32 like MIPS o32.
 - **Struct layout:** m68k aligns `int` to 2 bytes where MIPS uses 4. Audit
   on-disk and ABI-visible structs (`stat`, `utmp`, a.out header, directory
-  entries).
+  entries). *Update (M1):* GCC's default is kept (D17); `dinode`, `fs`,
+  `direct` and the a.out header lay out identically with either alignment.
 - Exclude the native toolchain and debugger commands from the build for this
   machine by trimming `src/cmd/Makefile`.
 
