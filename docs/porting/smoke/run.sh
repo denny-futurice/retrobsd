@@ -38,8 +38,10 @@ run_test() {
     ${CROSS}gcc $CFLAGS -c "$here/crt.S" -o "$out/crt.o"
     ${CROSS}ld -T "$here/l.ld" -static "$out/crt.o" "$out/$name.o" -o "$out/$name.elf" 2>/dev/null
     # Tests spin forever after printing, so stop QEMU after a short timeout.
+    # stdin is /dev/null: timeout runs QEMU outside the terminal's foreground
+    # group, and QEMU setting tty modes on stdin would stop it with SIGTTOU.
     result=$(timeout 5 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel "$out/$name.elf" \
-        -nographic -serial stdio -monitor none 2>/dev/null || true)
+        -nographic -serial stdio -monitor none </dev/null 2>/dev/null || true)
     case "$result" in
     *"$want"*) echo "PASS $name" ;;
     *) echo "FAIL $name: expected '$want', got '$result'" >&2; return 1 ;;
