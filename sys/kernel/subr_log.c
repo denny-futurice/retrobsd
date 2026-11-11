@@ -32,11 +32,6 @@ int nlog = 1;
 #include <sys/systm.h>
 #include <sys/conf.h>
 
-const struct devspec logdevs[] = {
-    { 0, "klog" },
-    { 0, 0 }
-};
-
 #define LOG_RDPRI   (PZERO + 1)
 
 #define LOG_OPEN    0x01
@@ -57,6 +52,7 @@ int
 logopen(dev, mode, unused)
     dev_t dev;
     int mode;
+    int unused;
 {
     register int    unit = minor(dev);
 
@@ -64,8 +60,6 @@ logopen(dev, mode, unused)
         return(ENODEV);
     if (logisopen(unit))
         return(EBUSY);
-    if (msgbuf[unit].msg_bufc == 0)             /* no buffer allocated */
-        return(ENOMEM);
     logsoftc[unit].sc_state |= LOG_OPEN;
     logsoftc[unit].sc_pgid = u.u_procp->p_pid;  /* signal process only */
     logsoftc[unit].sc_overrun = 0;
@@ -77,6 +71,7 @@ int
 logclose(dev, flag, unused)
     dev_t   dev;
     int flag;
+    int unused;
 {
     register int unit = minor(dev);
 

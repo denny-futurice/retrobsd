@@ -79,24 +79,29 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `sys_process.c` (`FRAME_*`, `ST_RP` from `sys/pic32/io.h`) and
       `sys_pipe.c` (`#error` for unknown architecture); these move with the
       trap frame to M3. Optional `subr_log.c` (K&R `-Wimplicit-int`, missing
-      `struct devspec`) and `tty_pty.c` were not built.
-- [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
-      `-std=gnu99` is pinned. Survey (each libc subdirectory built with its
-      own Makefile, all other target libraries clean): the K&R failures
-      `abs.c`, `insque.c`, `remque.c` (no return type) and `valloc.c`
-      (undeclared `getpagesize`) in `src/libc/gen` are fixed; they are not
-      in the `gen` Makefile yet. Open:
+      `struct devspec`) and `tty_pty.c` were not built (since fixed, see
+      the K&R task).
+- [x] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
+      Done for the target libraries and the kernel. `-std=gnu99` is pinned.
+      Survey: each libc subdirectory built with its own Makefile; all other
+      target libraries were already clean. Fixed:
+      - `src/libc/gen`: `abs.c`, `insque.c`, `remque.c` (no return type),
+        `valloc.c` (undeclared `getpagesize`); not in the `gen` Makefile yet.
       - `signal.h` set macros (`sigemptyset`, ...) tripped `-Wunused-value`
         in `abort.c`, `popen.c`, `system.c`, `siginterrupt.c`, `signal.c`
-        and `pause.c`: fixed by removing the macros in favour of the
-        `sigsetops.c` functions (D19), whose `sigismember` was also fixed
-        (it tested the inverted mask). Checked on QEMU (68030).
+        and `pause.c`: removed in favour of the `sigsetops.c` functions
+        (D19), whose `sigismember` was also fixed (it tested the inverted
+        mask). Checked on QEMU (68030).
       - `isinf.c`, `isnan.c`, `modf.c` (strict aliasing, swapped words in
         `modf`) and the PIC32-only `double`-to-`float` aliases in `isinff.c`,
         `isnanf.c`, `modff.c`: fixed by cherry-picking upstream `e7a6580`,
         which builds the real double versions. Checked on QEMU (68030).
-      - `sys/kernel/subr_log.c` (optional): K&R `int`, an always-false NULL
-        check and missing `struct devspec`.
+      - `sys/kernel/subr_log.c` and `tty_pty.c`: removed the unreferenced
+        `struct devspec` tables left behind by upstream `5cb608d`, declared
+        the K&R `unused` parameters and dropped a dead `msg_bufc` check.
+        With `LOG_ENABLED` and `PTY_ENABLED`, 48 of 51 `sys/kernel` files
+        compile; the other 3 need the trap frame (M3).
+      Userland programs are not covered; see M5.
 - [x] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
       (`as`, `ld`, `aout`, `ccom`, `lcc`, `lccom`, `smlrc`, `adb`, `nm`, `size`,
       `strip`, `ar`, `ranlib`, ...)
@@ -155,6 +160,11 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 - [ ] Audit FP-dependent libc/libm code (`atof`, `ecvt`/`gcvt`, `printf` `%f`,
       `libm`) for MIPS or soft-float assumptions; confirm hardware FP works
 - [ ] Build the reduced userland with `rootfs.manifest` adjusted
+- [ ] Fix `-Werror` failures in `src/cmd` and `src/games` as they are built.
+      Already seen: `src/libc/net/rcmd.c` (missing `sys/socket.h`; `net` is
+      not built), `games/warp/sig.c` (`gtty`), `games/hunt/driver.c`
+      (`#else` tokens), `cmd/mail.c` and `cmd/cron/popen.c`
+      (`-Wparentheses`)
 - [ ] Boot to a shell in QEMU; smoke test core commands
 
 ## M6: Optional / future
