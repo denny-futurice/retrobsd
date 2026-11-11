@@ -44,7 +44,7 @@ OBJS = exec_aout.o exec_conf.o exec_elf.o exec_script.o exec_subr.o \
 	syscalls.o tty.o tty_subr.o tty_tty.o ufs_alloc.o ufs_bio.o \
 	ufs_bmap.o ufs_dsort.o ufs_fio.o ufs_inode.o ufs_mount.o \
 	ufs_namei.o ufs_subr.o ufs_syscalls.o ufs_syscalls2.o \
-	vfs_vnops.o vm_sched.o vm_swap.o vm_swp.o devsw.o 
+	vfs_vnops.o vm_sched.o vm_swap.o vm_swp.o devsw.o machdep.o 
 
 CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c $S/kernel/exec_elf.c \
 	$S/kernel/exec_script.c $S/kernel/exec_subr.c \
@@ -66,7 +66,8 @@ CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c $S/kernel/exec_elf.c \
 	$S/kernel/ufs_namei.c $S/kernel/ufs_subr.c \
 	$S/kernel/ufs_syscalls.c $S/kernel/ufs_syscalls2.c \
 	$S/kernel/vfs_vnops.c $S/kernel/vm_sched.c $S/kernel/vm_swap.c \
-	$S/kernel/vm_swp.c $S/m68k/devsw.c swapunix.c 
+	$S/kernel/vm_swp.c $S/m68k/devsw.c $S/m68k/machdep.c \
+	swapunix.c 
 
 # load lines for config "xxx" will be emitted as:
 # xxx: ${SYSTEM_DEP} swapxxx.o
@@ -274,6 +275,9 @@ vm_swp.o: $S/kernel/vm_swp.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 devsw.o: $S/m68k/devsw.c ${SYSTEM_DEP}
+	${COMPILE_C}
+
+machdep.o: $S/m68k/machdep.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 

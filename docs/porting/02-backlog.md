@@ -135,9 +135,18 @@ life (no separate banner). There is no disk yet (D20).
       returns, startup halts. Covered by the `startup` (BSS clear, stack,
       VBR) and `badvec` (`trap #15` reaches `badtrap` with vector 47, PC
       and SR) smoke tests in `make check`.
-- [ ] Minimal `machdep.c`: `startup`, `kconfig`, `boot`/halt (QEMU
+- [x] Minimal `machdep.c`: `startup`, `kconfig`, `boot`/halt (QEMU
       `virt-ctrl` power off), `spl*` via the status register IPL (D16),
       no-op `clkstart`
+      Done (`sys/m68k/machdep.c`, device addresses and bootinfo records in
+      `sys/m68k/virt.h`). `spl*` were already inline in `machparam.h`.
+      `startup` reads `physmem` from the QEMU bootinfo memory chunk;
+      `boot` writes `virt-ctrl` HALT (QEMU exits with status 0) or RESET;
+      `idle` uses `stop #0x2000`; `udelay` busy-waits on the Goldfish RTC;
+      `badtrap` prints and panics. Also ported unchanged from PIC32: the
+      kernel tables, `ffs` (with `bfffo`), the string and memory routines
+      and `copyin`/`copyout` (range checks against the fixed user region,
+      no fault recovery). Checked on QEMU with a throwaway harness
 - [ ] Goldfish TTY console: polled `cnputc` only; the interrupt-driven tty
       side is M3
 - [ ] `sys/m68k/stubs.c`: every remaining undefined symbol panics with "not
@@ -154,7 +163,8 @@ life (no separate banner). There is no disk yet (D20).
       the pipe return value in `sys_pipe.c`
 - [ ] Goldfish PIC and timer; clock tick; `spl*` mapped to the IPL mask
 - [ ] `trap #0` syscall path; signals and `sigreturn`
-- [ ] Context switch, `copyin`/`copyout`
+- [ ] Context switch; `copyin`/`copyout` exist (M2 `machdep.c`) but only
+      range-check, review them against the user region once processes run
 - [ ] FPU state save/restore (`fsave`/`frestore`, `fmovem`) in context switch
       and signal delivery; FPU exception and line-F trap handling (D12)
 - [ ] 68030 cache enable via `CACR`

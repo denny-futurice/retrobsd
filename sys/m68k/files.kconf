@@ -57,3 +57,4 @@ kernel/vm_swp.c                 standard
 # written (M2 onwards); only files that exist are listed.
 #
 m68k/devsw.c                    standard
+m68k/machdep.c                  standard
