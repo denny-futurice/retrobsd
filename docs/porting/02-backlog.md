@@ -114,14 +114,26 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `rootfs.manifest` still names the disabled programs (see M4).
 
 ## M2: Hello from the kernel
-- [ ] Add the `sys/m68k/virt/` board `Config`; generate the board `Makefile`
-      with `kconfig` (the `sys/m68k/` skeleton, headers and `files.kconf` /
-      `devices.kconf` / `Makefile.kconf` come from M0 and M1). kconfig only
-      emits the kernel link target for a `config unix root on <dev>` line,
-      and `<dev>` must be listed in `devices.kconf`; the virtio block driver
-      is M4, so decide whether to reserve its entry early
-- [ ] `startup.S`: vector table, stack setup, BSS clear, jump to `main`
-- [ ] Goldfish TTY driver; console output of a banner on QEMU
+Goal: the kernel links, boots on QEMU and stops in
+`panic("No root filesystem found!")`; that `panic()` output is the proof of
+life (no separate banner). There is no disk yet (D20).
+- [ ] Add the `sys/m68k/virt/` board `Config` with the root stubbed as
+      `root on major 0 minor 0`, swap on `major 0 minor 1` (D20); generate
+      the board `Makefile` with `kconfig`. Add a minimal m68k `devsw.c`
+      whose block major 0 is a "no disk" entry that fails to open
+- [ ] `startup.S`: vector table (every vector to a default handler that
+      prints the vector number and halts), supervisor stack, BSS clear,
+      jump to `main`
+- [ ] Minimal `machdep.c`: `startup`, `kconfig`, `boot`/halt (QEMU
+      `virt-ctrl` power off), `spl*` via the status register IPL (D16),
+      no-op `clkstart`
+- [ ] Goldfish TTY console: polled `cnputc` only; the interrupt-driven tty
+      side is M3
+- [ ] `sys/m68k/stubs.c`: every remaining undefined symbol panics with "not
+      implemented", so the kernel links (D20). The three trap-frame files
+      (`exec_subr.c`, `sys_pipe.c`, `sys_process.c`) get placeholder
+      `FRAME_*` definitions or stay out of the M2 link
+- [ ] Kernel boot test in `make check`: expect the `panic()` message
 - [ ] Document the QEMU invocation and a GDB recipe
 
 ## M3: Traps, syscalls, scheduling
@@ -136,9 +148,11 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       and signal delivery; FPU exception and line-F trap handling (D12)
 - [ ] 68030 cache enable via `CACR`
 - [ ] Run a static `init` as a user process (fixed user region, no MMU)
+- [ ] `sys/m68k/stubs.c` is empty and removed (D20)
 
 ## M4: Storage and filesystem (endianness work)
-- [ ] virtio-mmio block driver
+- [ ] virtio-mmio block driver; add it to `devices.kconf` and switch the
+      board `Config` root and swap from the D20 stub to it
 - [ ] Endianness audit of `tools/fsutil` and the on-disk format
 - [ ] Big-endian ELF32 / EM_68K support in `tools/elf2aout`; m68k a.out magic
 - [ ] Audit struct layout (2-byte `int` alignment, D17): `stat`, `utmp`, a.out

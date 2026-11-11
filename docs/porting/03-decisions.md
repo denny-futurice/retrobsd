@@ -218,3 +218,24 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   hidden by the macro).
 - **Consequences:** each use is a function call; acceptable for now, and an
   M6 performance item re-evaluates it.
+
+## D20: M2 boots without storage: stubbed root device and M3 stubs
+- **Context:** kconfig only emits the kernel link target for a
+  `config unix root on <dev>` line, and `main()` always mounts the root.
+  The virtio block driver is M4, and many machine-dependent routines
+  (`copyin`, `sendsig`, `setjmp`, the trap frame users, ...) are M3. Linking
+  the `sys/kernel` objects leaves 74 undefined symbols.
+- **Decision:**
+  - The virt board `Config` uses kconfig's raw device-number form,
+    `root on major 0 minor 0` and `swap on major 0 minor 1`, so no
+    `devices.kconf` entry is needed. Block major 0 in the m68k `devsw.c` is
+    a "no disk" entry whose open fails.
+  - `sys/m68k/stubs.c` defines every routine M2 does not implement; each
+    panics with "not implemented".
+  - M2 is done when the kernel boots on QEMU and prints
+    `panic: No root filesystem found!` from `main()`. That output replaces
+    a separate banner as the M2 proof.
+- **Consequences:** the M2 boot test exercises startup, the console,
+  `printf`, table setup and `panic()` without a disk. M3 empties and
+  deletes `stubs.c`; M4 replaces the stubbed root and swap with the virtio
+  block device in `Config` and `devices.kconf`.
