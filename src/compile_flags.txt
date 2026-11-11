@@ -1,0 +1,6 @@
+--target=m68k-linux-gnu
+-mcpu=68030
+-std=gnu99
+-ffreestanding
+-nostdinc
+-I../include

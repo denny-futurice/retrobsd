@@ -28,6 +28,19 @@ Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `qemu-system-misc`. `gdb-multiarch` is only needed for debugging. Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
+## Editor setup (clangd)
+
+`sys/`, `src/` and `include/` each have a `compile_flags.txt` that makes clangd
+parse for m68k with `-nostdinc` against the tree's own headers, as the GCC build
+does, so host (Linux/glibc) headers never shadow the BSD ones. `sys/` adds
+`-DKERNEL`. The top-level `.clangd` pre-includes `<sys/param.h>` for header
+files opened on their own. `tools/` are host programs and use clangd's defaults.
+Restart clangd after changing these files. Known differences: clangd's m68k
+target has an 8-byte `long double` and 8-byte `double` alignment (GCC: 12 and 2,
+D17), so hover sizes and offsets of such structs differ from the real build.
+Optional drivers (`LOG_ENABLED`, ...) and board defines from a `Config` are not
+set, so their code shows as inactive.
+
 ## Smoke test
 
 ```shell

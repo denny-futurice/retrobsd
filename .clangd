@@ -1,0 +1,9 @@
+# clangd configuration. Per-tree compiler flags (m68k target, no host
+# headers) are in sys/, src/ and include/compile_flags.txt.
+---
+# BSD headers rely on the including file for <sys/param.h>; give headers
+# opened on their own the same context.
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  Add: [-include, sys/param.h]

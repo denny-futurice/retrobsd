@@ -31,6 +31,7 @@ Makefile.user
 #misc
 *.log
 *.txt
+!compile_flags.txt
 *.c-
 
 TODO
@@ -39,3 +40,7 @@ TODO
 
 *#*
 *~
+
+# clangd
+.cache/
+compile_commands.json
