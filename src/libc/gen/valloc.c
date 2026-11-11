@@ -4,6 +4,7 @@
  * specifies the terms and conditions for redistribution.
  */
 #include <stdlib.h>
+#include <unistd.h>
 
 char *
 valloc(i)

@@ -3,7 +3,9 @@
  * All rights reserved.  The Berkeley software License Agreement
  * specifies the terms and conditions for redistribution.
  */
+#include <stdlib.h>
 
+int
 abs(arg)
 	int arg;
 {

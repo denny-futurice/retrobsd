@@ -81,8 +81,22 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       trap frame to M3. Optional `subr_log.c` (K&R `-Wimplicit-int`, missing
       `struct devspec`) and `tty_pty.c` were not built.
 - [ ] Fix K&R/`-Werror` issues surfaced by GCC; pin the C dialect
-      Handover: 12 of 103 `src/libc/gen/*.c` fail, e.g. `abs.c`
-      (`-Wimplicit-int` under `-Werror`). Pin `-std=gnu99` (already set).
+      `-std=gnu99` is pinned. Survey (each libc subdirectory built with its
+      own Makefile, all other target libraries clean): the K&R failures
+      `abs.c`, `insque.c`, `remque.c` (no return type) and `valloc.c`
+      (undeclared `getpagesize`) in `src/libc/gen` are fixed; they are not
+      in the `gen` Makefile yet. Open:
+      - `include/signal.h` and `include/sys/signal.h`: the `sigemptyset`/
+        `sigaddset`-style macros trip `-Wunused-value` in `abort.c`,
+        `popen.c`, `system.c`, `siginterrupt.c`, `signal.c` (`gen`) and
+        `pause.c` (`compat`).
+      - `isinf.c`, `isnan.c`, `modf.c`: strict-aliasing errors; `modf.c`
+        also reads the double's words swapped. Not built today.
+      - `isinff.c`, `isnanf.c`, `modff.c` alias the double functions to the
+        float ones, valid only with PIC32's 32-bit `double`; the double
+        versions must be built instead.
+      - `sys/kernel/subr_log.c` (optional): K&R `int`, an always-false NULL
+        check and missing `struct devspec`.
 - [x] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
       (`as`, `ld`, `aout`, `ccom`, `lcc`, `lccom`, `smlrc`, `adb`, `nm`, `size`,
       `strip`, `ar`, `ranlib`, ...)
