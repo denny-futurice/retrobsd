@@ -90,11 +90,10 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
         `sigaddset`-style macros trip `-Wunused-value` in `abort.c`,
         `popen.c`, `system.c`, `siginterrupt.c`, `signal.c` (`gen`) and
         `pause.c` (`compat`).
-      - `isinf.c`, `isnan.c`, `modf.c`: strict-aliasing errors; `modf.c`
-        also reads the double's words swapped. Not built today.
-      - `isinff.c`, `isnanf.c`, `modff.c` alias the double functions to the
-        float ones, valid only with PIC32's 32-bit `double`; the double
-        versions must be built instead.
+      - `isinf.c`, `isnan.c`, `modf.c` (strict aliasing, swapped words in
+        `modf`) and the PIC32-only `double`-to-`float` aliases in `isinff.c`,
+        `isnanf.c`, `modff.c`: fixed by cherry-picking upstream `e7a6580`,
+        which builds the real double versions. Checked on QEMU (68030).
       - `sys/kernel/subr_log.c` (optional): K&R `int`, an always-false NULL
         check and missing `struct devspec`.
 - [x] Trim `src/cmd/Makefile` for m68k: exclude native compilers and tools
