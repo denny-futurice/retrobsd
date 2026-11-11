@@ -210,8 +210,11 @@ char *devtoname(dev_t dev)
     for (dp = devtable; dp; dp = dp->dev_next)
         if (major(dev) == dp->dev_major)
             break;
-    if (dp == 0)
-        dp = devtable;
+    if (dp == 0) {
+        /* Raw "major N minor M" with no matching devices.kconf entry. */
+        sprintf(buf, "major %d minor %d", major(dev), minor(dev));
+        return strdup(buf);
+    }
 
     if (minor(dev) == 0)
         sprintf(buf, "%s%d", dp->dev_name, minor(dev) >> 3);

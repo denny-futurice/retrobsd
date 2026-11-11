@@ -1,0 +1,21 @@
+#
+# QEMU "virt" board, Motorola 68030 with 68881 FPU
+# ================================================
+# qemu-system-m68k -M virt -cpu m68030 (see docs/porting/).
+#
+# To build the kernel, use:
+#   cd sys/m68k/virt
+#   ../../../tools/kconfig/kconfig Config
+#   make clean
+#   make
+#
+architecture    "m68k"
+cpu             "M68030"                    # Processor variant
+board           "QEMU_VIRT"                 # Board type
+ldscript        "virt/kernel.ld"            # Linker script
+
+# There is no disk driver yet (virtio block is M4). Root and swap use raw
+# device numbers on block major 0, a "no disk" entry in devsw.c, so the
+# kernel stops with "No root filesystem found!" (decision D20).
+config          unix    root on major 0 minor 0
+                        swap on major 0 minor 1

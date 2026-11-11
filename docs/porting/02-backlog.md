@@ -117,10 +117,16 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
 Goal: the kernel links, boots on QEMU and stops in
 `panic("No root filesystem found!")`; that `panic()` output is the proof of
 life (no separate banner). There is no disk yet (D20).
-- [ ] Add the `sys/m68k/virt/` board `Config` with the root stubbed as
+- [x] Add the `sys/m68k/virt/` board `Config` with the root stubbed as
       `root on major 0 minor 0`, swap on `major 0 minor 1` (D20); generate
       the board `Makefile` with `kconfig`. Add a minimal m68k `devsw.c`
       whose block major 0 is a "no disk" entry that fails to open
+      Done. kconfig crashed on a raw major/minor with an empty
+      `devices.kconf` (`devtoname()` NULL dereference); it now names such
+      devices `major N minor M`. `devsw.c` keeps the PIC32 major numbers;
+      it compiles, and still references the console (`cn*`, step 4), the
+      swap devices (`sw*`, `swc*`) and `mmrw`, which are ported from
+      `sys/pic32/swap.c` and `mem.c` or stubbed by the `stubs.c` step
 - [ ] `startup.S`: vector table (every vector to a default handler that
       prints the vector number and halts), supervisor stack, BSS clear,
       jump to `main`

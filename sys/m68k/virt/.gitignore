@@ -1,0 +1,10 @@
+.deps/
+machine
+sys
+vers.c
+*.h
+ioconf.c
+swapunix.c
+unix.bin
+unix.dis
+unix.nm

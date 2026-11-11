@@ -56,3 +56,4 @@ kernel/vm_swp.c                 standard
 # m68k platform.  Machine-dependent files are added here as they are
 # written (M2 onwards); only files that exist are listed.
 #
+m68k/devsw.c                    standard
