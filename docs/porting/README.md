@@ -50,11 +50,16 @@ sh docs/porting/smoke/run.sh
 Each test is a single freestanding source file in `smoke/` that checks one thing and prints an
 expected string to the Goldfish TTY on `qemu-system-m68k -M virt -cpu m68030`, built with the flags
 the port will use.
+`startup` and `badvec` link with the kernel's `sys/m68k/startup.S` and
+`sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
+`smoke_bss` array through QEMU's loader device so a missing BSS clear is caught.
 
 | Test    | Checks                                            | Expected output |
 |---------|---------------------------------------------------|-----------------|
 | `hello` | toolchain, linker script and QEMU boot            | `hello m68030`  |
 | `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
+| `startup` | kernel `startup.S`: BSS clear, stack, VBR       | `startup ok`    |
+| `badvec`  | unexpected exception reaches `badtrap()`        | `badvec ok`     |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix.

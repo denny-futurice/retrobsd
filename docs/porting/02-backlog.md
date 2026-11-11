@@ -127,9 +127,14 @@ life (no separate banner). There is no disk yet (D20).
       it compiles, and still references the console (`cn*`, step 4), the
       swap devices (`sw*`, `swc*`) and `mmrw`, which are ported from
       `sys/pic32/swap.c` and `mem.c` or stubbed by the `stubs.c` step
-- [ ] `startup.S`: vector table (every vector to a default handler that
+- [x] `startup.S`: vector table (every vector to a default handler that
       prints the vector number and halts), supervisor stack, BSS clear,
       jump to `main`
+      Done (`sys/m68k/startup.S`). The default handler `badvec` calls
+      `badtrap(vector, pc, sr)`, which `machdep.c` provides. If `main`
+      returns, startup halts. Covered by the `startup` (BSS clear, stack,
+      VBR) and `badvec` (`trap #15` reaches `badtrap` with vector 47, PC
+      and SR) smoke tests in `make check`.
 - [ ] Minimal `machdep.c`: `startup`, `kconfig`, `boot`/halt (QEMU
       `virt-ctrl` power off), `spl*` via the status register IPL (D16),
       no-op `clkstart`
@@ -154,6 +159,8 @@ life (no separate banner). There is no disk yet (D20).
       and signal delivery; FPU exception and line-F trap handling (D12)
 - [ ] 68030 cache enable via `CACR`
 - [ ] Run a static `init` as a user process (fixed user region, no MMU)
+      `startup.S` must enter user mode at `USER_DATA_START` when `main`
+      returns in process 1, as PIC32's reset code does
 - [ ] `sys/m68k/stubs.c` is empty and removed (D20)
 
 ## M4: Storage and filesystem (endianness work)
