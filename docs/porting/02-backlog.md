@@ -86,10 +86,11 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       `abs.c`, `insque.c`, `remque.c` (no return type) and `valloc.c`
       (undeclared `getpagesize`) in `src/libc/gen` are fixed; they are not
       in the `gen` Makefile yet. Open:
-      - `include/signal.h` and `include/sys/signal.h`: the `sigemptyset`/
-        `sigaddset`-style macros trip `-Wunused-value` in `abort.c`,
-        `popen.c`, `system.c`, `siginterrupt.c`, `signal.c` (`gen`) and
-        `pause.c` (`compat`).
+      - `signal.h` set macros (`sigemptyset`, ...) tripped `-Wunused-value`
+        in `abort.c`, `popen.c`, `system.c`, `siginterrupt.c`, `signal.c`
+        and `pause.c`: fixed by removing the macros in favour of the
+        `sigsetops.c` functions (D19), whose `sigismember` was also fixed
+        (it tested the inverted mask). Checked on QEMU (68030).
       - `isinf.c`, `isnan.c`, `modf.c` (strict aliasing, swapped words in
         `modf`) and the PIC32-only `double`-to-`float` aliases in `isinff.c`,
         `isnanf.c`, `modff.c`: fixed by cherry-picking upstream `e7a6580`,
@@ -163,3 +164,7 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       Candidates:
   - [ ] Alignment experiment: build everything with `-malign-int` (4-byte
         `int`/`long`/`double`) and compare against the GCC default (D17)
+  - [ ] Signal set calls: `sigemptyset`/`sigaddset`/... are now function
+        calls into `sigsetops.c` instead of header macros (D19). Measure
+        whether the call overhead matters and, if so, inline them without
+        reintroducing GCC-specific constructs

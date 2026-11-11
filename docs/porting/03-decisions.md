@@ -205,3 +205,16 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   by uncommenting one line. Their sources stay in the tree (D11).
 - **Consequences:** their `rootfs.manifest` entries are removed with the M4
   root filesystem task.
+
+## D19: Signal set operations are functions, not header macros
+- **Context:** `sys/include/signal.h` defined `sigemptyset`, `sigfillset`,
+  `sigaddset`, `sigdelset` and `sigismember` as comma-expression macros. Used
+  as statements, GCC reports `-Wunused-value`, which `-Werror` makes fatal in
+  six libc files. A GCC statement-expression rewrite would also work.
+- **Decision:** remove the five macros (keep `sigmask`) and declare the
+  functions, which `src/libc/gen/sigsetops.c` already provides. This is plain
+  C and avoids a GCC-specific construct. `sigismember` in `sigsetops.c` is
+  fixed at the same time: it tested `~sigmask(signo)` (also wrong upstream,
+  hidden by the macro).
+- **Consequences:** each use is a function call; acceptable for now, and an
+  M6 performance item re-evaluates it.

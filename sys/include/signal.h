@@ -152,11 +152,6 @@ struct  sigcontext {
  * sigblock().
  */
 #define sigmask(m)              (1L << ((m)-1))
-#define sigaddset(set, signo)   (*(set) |= 1L << ((signo) - 1), 0)
-#define sigdelset(set, signo)   (*(set) &= ~(1L << ((signo) - 1)), 0)
-#define sigemptyset(set)        (*(set) = (sigset_t)0, (int)0)
-#define sigfillset(set)         (*(set) = ~(sigset_t)0, (int)0)
-#define sigismember(set, signo) ((*(set) & (1L << ((signo) - 1))) != 0)
 
 #ifdef KERNEL
 
@@ -181,6 +176,11 @@ int     sigsetmask (int mask);
 int     sigprocmask (int how, const sigset_t *set, sigset_t *oldset);
 int     siginterrupt (int sig, int flag);
 int     sigsuspend (const sigset_t *mask);
+int     sigemptyset (sigset_t *set);
+int     sigfillset (sigset_t *set);
+int     sigaddset (sigset_t *set, int signo);
+int     sigdelset (sigset_t *set, int signo);
+int     sigismember (const sigset_t *set, int signo);
 
 #endif /* KERNEL */
 

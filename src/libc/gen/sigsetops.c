@@ -32,12 +32,6 @@
  */
 #include <signal.h>
 
-#undef sigemptyset
-#undef sigfillset
-#undef sigaddset
-#undef sigdelset
-#undef sigismember
-
 int
 sigemptyset(sigset_t *set)
 {
@@ -67,7 +61,7 @@ sigdelset(sigset_t *set, int signo)
 }
 
 int
-sigismember(sigset_t *set, int signo)
+sigismember(const sigset_t *set, int signo)
 {
-	return ((*set & ~sigmask(signo)) != 0);
+	return ((*set & sigmask(signo)) != 0);
 }
