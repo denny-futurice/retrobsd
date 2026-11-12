@@ -176,12 +176,9 @@ void    wait4 (void), getuid (void), getgid (void), getgroups (void), setgroups 
 void    geteuid (void), getegid (void);
 void    getpgrp (void), setpgrp (void);
 void    setgid (void), setegid (void), setuid (void), seteuid (void);
-void    ucall (void);                   /* 2BSD calls */
 
 /* 1.2 memory management */
 void    brk (void);
-void    ustore (void);                                  /* 2BSD calls */
-void    ufetch (void);                                  /* 2BSD calls */
 
 /* 1.3 signals */
 void    sigstack (void), sigreturn (void);

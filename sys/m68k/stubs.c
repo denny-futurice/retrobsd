@@ -17,7 +17,7 @@
 #include <sys/file.h>
 #include <sys/exec.h>
 #include <sys/signal.h>
-#include <sys/sysctl.h>
+#include <sys/ptrace.h>
 
 #define NOTYET(name)    panic(#name " not implemented")
 
@@ -78,32 +78,6 @@ void
 sc_msec()
 {
     NOTYET(sc_msec);
-}
-
-void
-ucall()
-{
-    NOTYET(ucall);
-}
-
-void
-ufetch()
-{
-    NOTYET(ufetch);
-}
-
-void
-ustore()
-{
-    NOTYET(ustore);
-}
-
-int
-cpu_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
-    void *newp, size_t newlen)
-{
-    NOTYET(cpu_sysctl);
-    return 0;
 }
 
 /*
@@ -189,8 +163,11 @@ const struct fileops pipeops = {
 };
 
 /*
- * kernel/sys_process.c: ptrace reads and writes the trap frame.
+ * kernel/sys_process.c: ptrace reads and writes the trap frame.  The
+ * ptrace state ipc is also listed in sysctl.c's kernel symbol table.
  */
+struct ipc ipc;
+
 void
 ptrace()
 {

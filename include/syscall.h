@@ -170,7 +170,5 @@
  * 2BSD special calls
  */
                                 /* 151 is unused */
-#define SYS_ustore      152
-#define SYS_ufetch      153
-#define SYS_ucall       154
+                                /* 152-154 were ustore, ufetch, ucall */
                                 /* 155 is unused */

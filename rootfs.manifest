@@ -1539,7 +1539,6 @@ file /share/man/cat2/swapon.0
 file /share/man/cat2/symlink.0
 file /share/man/cat2/sync.0
 file /share/man/cat2/syscall.0
-file /share/man/cat2/ucall.0
 file /share/man/cat2/umask.0
 file /share/man/cat2/unlink.0
 file /share/man/cat2/utimes.0

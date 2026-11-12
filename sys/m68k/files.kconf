@@ -65,3 +65,4 @@ m68k/machdep.c                  standard
 m68k/mem.c                      standard
 m68k/stubs.c                    standard
 m68k/swap.c                     standard
+m68k/sysctl.c                   standard
