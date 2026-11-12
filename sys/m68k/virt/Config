@@ -19,3 +19,10 @@ ldscript        "virt/kernel.ld"            # Linker script
 # kernel stops with "No root filesystem found!" (decision D20).
 config          unix    root on major 0 minor 0
                         swap on major 0 minor 1
+
+# Goldfish TTY, the QEMU serial console (-serial stdio)
+device          gftty0
+
+# Console options
+options         "CONS_MAJOR=UART_MAJOR"     # Goldfish TTY
+options         "CONS_MINOR=0"              # /dev/tty0

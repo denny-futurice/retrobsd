@@ -147,8 +147,16 @@ life (no separate banner). There is no disk yet (D20).
       kernel tables, `ffs` (with `bfffo`), the string and memory routines
       and `copyin`/`copyout` (range checks against the fixed user region,
       no fault recovery). Checked on QEMU with a throwaway harness
-- [ ] Goldfish TTY console: polled `cnputc` only; the interrupt-driven tty
+- [x] Goldfish TTY console: polled `cnputc` only; the interrupt-driven tty
       side is M3
+      Done. `sys/m68k/cons.c` is `sys/pic32/cons.c` unchanged; the driver
+      `sys/m68k/gftty.c` (`device gftty0` in `Config`, char major 6 as
+      `UART_MAJOR`, console `/dev/tty0`) writes output bytes as soon as
+      they are queued and reads input by polling in `gfttygetc`. `startup`
+      calls `gfttyinit` to keep the device interrupt off. Checked on QEMU
+      with a throwaway harness: probe message, `printf` through `cnputc`,
+      `cngetc` input. Not in `make check`: the kernel boot test (step 6)
+      covers console output
 - [ ] `sys/m68k/stubs.c`: every remaining undefined symbol panics with "not
       implemented", so the kernel links (D20). The three trap-frame files
       (`exec_subr.c`, `sys_pipe.c`, `sys_process.c`) get placeholder
@@ -162,6 +170,8 @@ life (no separate banner). There is no disk yet (D20).
       `sys/pic32/io.h`) and its MI users: `exec_subr.c`, `sys_process.c`, and
       the pipe return value in `sys_pipe.c`
 - [ ] Goldfish PIC and timer; clock tick; `spl*` mapped to the IPL mask
+- [ ] Goldfish TTY receive interrupt (PIC 1, source 32) feeding
+      `ttyinput`, so `read()` on the console works
 - [ ] `trap #0` syscall path; signals and `sigreturn`
 - [ ] Context switch; `copyin`/`copyout` exist (M2 `machdep.c`) but only
       range-check, review them against the user region once processes run

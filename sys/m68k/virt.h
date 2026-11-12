@@ -25,6 +25,20 @@
 #define GF_RTC_TIME_HIGH        0x04
 
 /*
+ * Goldfish TTY.  Output is one byte per PUT_CHAR write.  Input is read
+ * by DMA: set DATA_PTR and DATA_LEN, then write READ_BUFFER to CMD.
+ */
+#define GF_TTY_PUT_CHAR         0x00
+#define GF_TTY_BYTES_READY      0x04
+#define GF_TTY_CMD              0x08
+#define GF_TTY_DATA_PTR         0x10
+#define GF_TTY_DATA_LEN         0x14
+#define GF_TTY_CMD_INT_DISABLE  0
+#define GF_TTY_CMD_INT_ENABLE   1
+#define GF_TTY_CMD_WRITE_BUFFER 2
+#define GF_TTY_CMD_READ_BUFFER  3
+
+/*
  * virt-ctrl: system control.  Writing HALT or PANIC makes QEMU exit,
  * RESET restarts the machine.
  */

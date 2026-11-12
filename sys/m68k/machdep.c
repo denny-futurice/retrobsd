@@ -22,9 +22,13 @@
 #include <sys/namei.h>
 #include <sys/mount.h>
 #include <sys/systm.h>
+#include <sys/conf.h>
 #include <sys/kconfig.h>
 #include <sys/tty.h>
 #include <machine/virt.h>
+#ifdef GFTTY_ENABLED
+#   include <machine/gftty.h>
+#endif
 
 int     hz = HZ;
 int     usechz = (1000000L + HZ - 1) / HZ;
@@ -124,7 +128,12 @@ startup()
     if (physmem == 0)
         physmem = USER_DATA_END;
 
-    /* Early setup for console devices: added with the console driver. */
+    /*
+     * Early setup for console devices.
+     */
+#if defined(GFTTY_ENABLED) && CONS_MAJOR == UART_MAJOR
+    gfttyinit();
+#endif
 
     boothowto = 0;
 }

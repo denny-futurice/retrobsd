@@ -27,6 +27,9 @@
 #ifdef PTY_ENABLED
 #   include <sys/pty.h>
 #endif
+#ifdef GFTTY_ENABLED
+#   include <machine/gftty.h>
+#endif
 
 /*
  * Null routine; placed in insignificant entries
@@ -138,11 +141,17 @@ const struct cdevsw cdevsw[] = {
     NOCDEV
 #endif
 },
-{   /* 6 - serial tty: Goldfish TTY (M2) */
+{   /* 6 - serial tty: Goldfish TTY */
 #if UART_MAJOR != 6
 #   error Wrong UART_MAJOR value!
 #endif
+#ifdef GFTTY_ENABLED
+    gfttyopen,      gfttyclose,     gfttyread,      gfttywrite,
+    gfttyioctl,     nulldev,        gfttyttys,      gfttyselect,
+    nostrategy,     gfttygetc,      gfttyputc,
+#else
     NOCDEV
+#endif
 },
 {   /* 7 - unused (PIC32 USB serial) */
     NOCDEV
