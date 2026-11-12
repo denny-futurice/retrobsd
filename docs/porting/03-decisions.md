@@ -254,3 +254,46 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** M3 smoke tests drive user mode, `trap #0` and context
   switches directly, without `main()`. The first end-to-end run of process
   1 happens only once the root filesystem mounts.
+
+## D22: The trap frame is a C struct over the hardware exception frame
+- **Context:** PIC32 trap entry saves the user registers as an array of
+  32-bit words; `u.u_frame` (`int *`) points at it and the kernel indexes it
+  with `FRAME_*` (`exec_subr.c`, `sys_process.c`, `sys_pipe.c`, the trap and
+  signal code). The 68030 pushes its own frame: a 16-bit SR, a 32-bit PC at
+  byte offset 2, a format/vector word, then format-dependent words (bus and
+  address errors push 16- or 46-word frames). The PC cannot be an `int[]`
+  index. The alternative, copying `usp`, `sr` and `pc` into a word array on
+  entry and back on exit, was rejected for code clarity.
+- **Decision:**
+  - `sys/m68k/frame.h` defines `struct trapframe` after NetBSD's
+    `m68k/include/frame.h`: `tf_regs[16]` (`d0`-`d7`, `a0`-`a7`, where `a7`
+    is the user stack pointer), `tf_pad`, `tf_stackadj`, then the hardware
+    frame `tf_sr`, `tf_pc` and `tf_format`/`tf_vector`. With GCC's 2-byte
+    `int` alignment (D17) `tf_pc` follows `tf_sr` without `__packed`.
+  - Trap entry leaves the hardware frame in place and pushes the registers
+    and `usp` below it; exit restores them and `rte`s through it. No
+    `sr`/`pc` copies.
+  - `u.u_frame` becomes `struct trapframe *` (`sys/include/user.h`); the
+    `FRAME_*` indexes go away. `exec_subr.c`, `sys_process.c` and
+    `sys_pipe.c` use the struct fields (M3 task 5). FP registers are not in
+    the frame: they are in the `u` area (task 3) and the `sigcontext`
+    (task 6).
+  - `u.u_frame` is set only for traps taken from user mode, as on PIC32.
+  - Writes to `tf_sr` from ptrace or `sigreturn` keep only the condition
+    codes and the trace bit; the supervisor bit and the interrupt mask are
+    forced to user values.
+  - A user bus or address error is never retried (no MMU, nothing to fix):
+    the process gets a signal, and the exit path replaces the long fault
+    frame with a format 0 frame (NetBSD's `tf_stackadj`) so execution goes
+    on at `tf_pc`.
+  - ptrace single step (`PT_STEP`, PIC32 `ST_RP`) sets the trace bit `T1`
+    (`0x8000`) in `tf_sr`.
+  - NetBSD's m68k trap, exception return and signal code (`trap.c`, the
+    `locore`/`trap_subr` exit path, `sig_machdep.c`) is the reference for
+    tasks 1, 4 and 6; its BSD licence is compatible and copied code keeps
+    the NetBSD copyright notices.
+- **Consequences:** about 80 lines change in machine-independent kernel
+  files (`user.h`, `exec_subr.c`, `sys_process.c`, `sys_pipe.c`), which is
+  acceptable since MIPS no longer has to build (D11). `adb`, the only
+  userland `FRAME_*` user, is out of scope (D8). Register order for ptrace
+  and GDB stays `d0`-`a7`, `sr`, `pc`.

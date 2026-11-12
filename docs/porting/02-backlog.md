@@ -193,9 +193,8 @@ each part is proven by its own smoke test; the kernel boot test still ends at
 the D20 root filesystem panic. Running process 1 is M4 (D21). Tasks are in
 implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
 
-- [ ] 0. Record the M3 decisions: trap frame layout (state copied into a
-      word array `d0-d7`, `a0-a6`, `usp`, `sr`, `pc` that `FRAME_*` index),
-      syscall ABI (`trap #0`, number in `d0`, arguments on the user stack,
+- [ ] 0. Record the M3 decisions: trap frame layout (D22: `struct
+      trapframe` over the hardware frame, NetBSD style), syscall ABI (`trap #0`, number in `d0`, arguments on the user stack,
       results in `d0`/`d1`, carry set and `errno` in `d0` on error) and the
       PIC32-only syscalls (`ufetch`/`ustore`/`ucall` return `EINVAL`)
 - [ ] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
@@ -213,9 +212,10 @@ implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
       registers survive
 - [ ] 4. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
       mode: arguments, results in `d0`/`d1`, carry on error, restart
-- [ ] 5. m68k trap frame users: `exec_subr.c` (`exec_setupstack`,
-      `exec_clear`), `sys_process.c` and the pipe return value in
-      `sys_pipe.c`. Re-enable the three files in `sys/m68k/files.kconf` and
+- [ ] 5. m68k trap frame users (D22): `u.u_frame` becomes `struct
+      trapframe *`; `exec_subr.c` (`exec_setupstack`, `exec_clear`; the m68k
+      ABI passes `argc`/`argv`/`envp` on the stack), `sys_process.c` and the
+      pipe return value in `sys_pipe.c` use its fields. Re-enable the three files in `sys/m68k/files.kconf` and
       drop their stubs from `stubs.c`
 - [ ] 6. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
       holds the FPU state (D12). Smoke test: signal frame round trip in user
