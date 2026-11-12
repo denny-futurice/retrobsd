@@ -101,12 +101,12 @@
  */
 #ifdef CROSS
 #   include </usr/include/stdio.h>
-#   define ustore(addr, value)  /*empty*/
-#   define ufetch(addr)         0
 #else
 #   include <stdio.h>
-#   include <machine/io.h>
 #endif
+/* PEEK/POKE are no-ops: the ufetch/ustore syscalls were removed (D24). */
+#define ustore(addr, value)  /*empty*/
+#define ufetch(addr)         0
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
@@ -309,13 +309,11 @@ unsigned kbtst ()
 
 void out (int addr, int value)
 {
-    /* 2BSD system call extension. */
     ustore (addr, value);
 }
 
 unsigned in (int addr)
 {
-    /* 2BSD system call extension. */
     return ufetch (addr);
 }
 
