@@ -159,10 +159,19 @@ life (no separate banner). There is no disk yet (D20).
       with a throwaway harness: probe message, `printf` through `cnputc`,
       `cngetc` input. Not in `make check`: the kernel boot test (step 6)
       covers console output
-- [ ] `sys/m68k/stubs.c`: every remaining undefined symbol panics with "not
+- [x] `sys/m68k/stubs.c`: every remaining undefined symbol panics with "not
       implemented", so the kernel links (D20). The three trap-frame files
       (`exec_subr.c`, `sys_pipe.c`, `sys_process.c`) get placeholder
       `FRAME_*` definitions or stay out of the M2 link
+      Done. The three trap-frame files stay out of the M2 link (commented
+      out in `files.kconf`): placeholder `FRAME_*` values would compile
+      silently wrong code. `stubs.c` stubs their symbols plus `setjmp`/
+      `longjmp`, `sendsig`/`sigreturn`, `nosys`, `sc_msec`, `ucall`/
+      `ufetch`/`ustore`, `cpu_sysctl` and `pipeops`; `icode` is an empty
+      blob. `mem.c` and `swap.c` are copied unchanged from PIC32 instead of
+      stubbed. `unix.elf` links (76 KB text) and on QEMU prints the banner,
+      `gftty0` probe and `panic: No root filesystem found!`, then halts
+      with exit status 0. Checked by hand; step 6 adds it to `make check`
 - [ ] Kernel boot test in `make check`: expect the `panic()` message
 - [ ] Document the QEMU invocation and a GDB recipe
 
@@ -171,6 +180,8 @@ life (no separate banner). There is no disk yet (D20).
 - [ ] m68k trap frame layout (`FRAME_*` offsets, replacing MIPS ones from
       `sys/pic32/io.h`) and its MI users: `exec_subr.c`, `sys_process.c`, and
       the pipe return value in `sys_pipe.c`
+      Re-enable the three files in `sys/m68k/files.kconf` and drop their
+      stubs from `stubs.c`
 - [ ] Goldfish PIC and timer; clock tick; `spl*` mapped to the IPL mask
 - [ ] Goldfish TTY receive interrupt (PIC 1, source 32) feeding
       `ttyinput`, so `read()` on the console works

@@ -38,31 +38,29 @@ CFLAGS          = -O ${DEFS}
 COMPILE_C       = ${CC} -c ${CFLAGS} $<
 COMPILE_S       = ${CC} -c ${DEFS} $<
 
-OBJS = exec_aout.o exec_conf.o exec_elf.o exec_script.o exec_subr.o \
-	init_main.o init_sysent.o kern_clock.o kern_descrip.o \
-	kern_exec.o kern_exit.o kern_fork.o kern_mman.o kern_proc.o \
-	kern_prot.o kern_prot2.o kern_resource.o kern_sig.o kern_sig2.o \
-	kern_subr.o kern_synch.o kern_sysctl.o kern_time.o subr_prf.o \
-	subr_rmap.o sys_generic.o sys_inode.o sys_pipe.o sys_process.o \
-	syscalls.o tty.o tty_subr.o tty_tty.o ufs_alloc.o ufs_bio.o \
-	ufs_bmap.o ufs_dsort.o ufs_fio.o ufs_inode.o ufs_mount.o \
-	ufs_namei.o ufs_subr.o ufs_syscalls.o ufs_syscalls2.o \
-	vfs_vnops.o vm_sched.o vm_swap.o vm_swp.o cons.o devsw.o gftty.o \
-	machdep.o 
+OBJS = exec_aout.o exec_conf.o exec_elf.o exec_script.o init_main.o \
+	init_sysent.o kern_clock.o kern_descrip.o kern_exec.o \
+	kern_exit.o kern_fork.o kern_mman.o kern_proc.o kern_prot.o \
+	kern_prot2.o kern_resource.o kern_sig.o kern_sig2.o kern_subr.o \
+	kern_synch.o kern_sysctl.o kern_time.o subr_prf.o subr_rmap.o \
+	sys_generic.o sys_inode.o syscalls.o tty.o tty_subr.o tty_tty.o \
+	ufs_alloc.o ufs_bio.o ufs_bmap.o ufs_dsort.o ufs_fio.o \
+	ufs_inode.o ufs_mount.o ufs_namei.o ufs_subr.o ufs_syscalls.o \
+	ufs_syscalls2.o vfs_vnops.o vm_sched.o vm_swap.o vm_swp.o cons.o \
+	devsw.o gftty.o machdep.o mem.o stubs.o swap.o 
 
 CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c $S/kernel/exec_elf.c \
-	$S/kernel/exec_script.c $S/kernel/exec_subr.c \
-	$S/kernel/init_main.c $S/kernel/init_sysent.c \
-	$S/kernel/kern_clock.c $S/kernel/kern_descrip.c \
-	$S/kernel/kern_exec.c $S/kernel/kern_exit.c \
-	$S/kernel/kern_fork.c $S/kernel/kern_mman.c \
-	$S/kernel/kern_proc.c $S/kernel/kern_prot.c \
-	$S/kernel/kern_prot2.c $S/kernel/kern_resource.c \
-	$S/kernel/kern_sig.c $S/kernel/kern_sig2.c $S/kernel/kern_subr.c \
+	$S/kernel/exec_script.c $S/kernel/init_main.c \
+	$S/kernel/init_sysent.c $S/kernel/kern_clock.c \
+	$S/kernel/kern_descrip.c $S/kernel/kern_exec.c \
+	$S/kernel/kern_exit.c $S/kernel/kern_fork.c \
+	$S/kernel/kern_mman.c $S/kernel/kern_proc.c \
+	$S/kernel/kern_prot.c $S/kernel/kern_prot2.c \
+	$S/kernel/kern_resource.c $S/kernel/kern_sig.c \
+	$S/kernel/kern_sig2.c $S/kernel/kern_subr.c \
 	$S/kernel/kern_synch.c $S/kernel/kern_sysctl.c \
 	$S/kernel/kern_time.c $S/kernel/subr_prf.c $S/kernel/subr_rmap.c \
 	$S/kernel/sys_generic.c $S/kernel/sys_inode.c \
-	$S/kernel/sys_pipe.c $S/kernel/sys_process.c \
 	$S/kernel/syscalls.c $S/kernel/tty.c $S/kernel/tty_subr.c \
 	$S/kernel/tty_tty.c $S/kernel/ufs_alloc.c $S/kernel/ufs_bio.c \
 	$S/kernel/ufs_bmap.c $S/kernel/ufs_dsort.c $S/kernel/ufs_fio.c \
@@ -71,10 +69,11 @@ CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c $S/kernel/exec_elf.c \
 	$S/kernel/ufs_syscalls.c $S/kernel/ufs_syscalls2.c \
 	$S/kernel/vfs_vnops.c $S/kernel/vm_sched.c $S/kernel/vm_swap.c \
 	$S/kernel/vm_swp.c $S/m68k/cons.c $S/m68k/devsw.c \
-	$S/m68k/gftty.c $S/m68k/machdep.c swapunix.c 
+	$S/m68k/gftty.c $S/m68k/machdep.c $S/m68k/mem.c $S/m68k/stubs.c \
+	$S/m68k/swap.c swapunix.c 
 
 # load lines for config "xxx" will be emitted as:
-# xxx: ${SYSTEM_DEP} swapxxx.o
+# xxx: ${SYSTEM_OBJ} swapxxx.o ${SYSTEM_DEP}
 #	${SYSTEM_LD_HEAD}
 #	${SYSTEM_LD} swapxxx.o
 #	${SYSTEM_LD_TAIL}
@@ -90,7 +89,7 @@ SYSTEM_LD_TAIL  = ${SIZE} $@; \
 
 unix: unix.elf
 
-unix.elf: ${SYSTEM_DEP} ${SYSTEM_OBJ} swapunix.o
+unix.elf: ${SYSTEM_OBJ} swapunix.o ${SYSTEM_DEP}
 	${SYSTEM_LD_HEAD}
 	${SYSTEM_LD} swapunix.o
 	${SYSTEM_LD_TAIL}
@@ -144,9 +143,6 @@ exec_elf.o: $S/kernel/exec_elf.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 exec_script.o: $S/kernel/exec_script.c ${SYSTEM_DEP}
-	${COMPILE_C}
-
-exec_subr.o: $S/kernel/exec_subr.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 init_main.o: $S/kernel/init_main.c ${SYSTEM_DEP}
@@ -213,12 +209,6 @@ sys_generic.o: $S/kernel/sys_generic.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 sys_inode.o: $S/kernel/sys_inode.c ${SYSTEM_DEP}
-	${COMPILE_C}
-
-sys_pipe.o: $S/kernel/sys_pipe.c ${SYSTEM_DEP}
-	${COMPILE_C}
-
-sys_process.o: $S/kernel/sys_process.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 syscalls.o: $S/kernel/syscalls.c ${SYSTEM_DEP}
@@ -288,6 +278,15 @@ gftty.o: $S/m68k/gftty.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 machdep.o: $S/m68k/machdep.c ${SYSTEM_DEP}
+	${COMPILE_C}
+
+mem.o: $S/m68k/mem.c ${SYSTEM_DEP}
+	${COMPILE_C}
+
+stubs.o: $S/m68k/stubs.c ${SYSTEM_DEP}
+	${COMPILE_C}
+
+swap.o: $S/m68k/swap.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 

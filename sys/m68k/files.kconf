@@ -5,7 +5,9 @@ kernel/exec_aout.c              standard
 kernel/exec_conf.c              standard
 kernel/exec_elf.c               standard
 kernel/exec_script.c            standard
-kernel/exec_subr.c              standard
+# exec_subr.c, sys_pipe.c and sys_process.c use the MIPS trap frame; they
+# are left out until the m68k trap frame exists (M3, D20), see m68k/stubs.c.
+#kernel/exec_subr.c              standard
 kernel/init_main.c              standard
 kernel/init_sysent.c            standard
 kernel/kern_clock.c             standard
@@ -29,8 +31,8 @@ kernel/subr_prf.c               standard
 kernel/subr_rmap.c              standard
 kernel/sys_generic.c            standard
 kernel/sys_inode.c              standard
-kernel/sys_pipe.c               standard
-kernel/sys_process.c            standard
+#kernel/sys_pipe.c               standard
+#kernel/sys_process.c            standard
 kernel/syscalls.c               standard
 kernel/tty.c                    standard
 kernel/tty_pty.c                optional pty
@@ -60,3 +62,6 @@ m68k/cons.c                     standard
 m68k/devsw.c                    standard
 m68k/gftty.c                    optional gftty
 m68k/machdep.c                  standard
+m68k/mem.c                      standard
+m68k/stubs.c                    standard
+m68k/swap.c                     standard
