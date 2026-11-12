@@ -191,7 +191,9 @@ life (no separate banner). There is no disk yet (D20).
 M3 ends when the machine-dependent kernel code exists, `stubs.c` is gone and
 each part is proven by its own smoke test; the kernel boot test still ends at
 the D20 root filesystem panic. Running process 1 is M4 (D21). Tasks are in
-implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
+implementation order; each lists the tasks it depends on. The tasks were
+renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
+10, 11 are now 5, 6, 7, 8, 4, 11, 10).
 
 - [x] 0. Record the M3 decisions: trap frame layout (D22: `struct
       trapframe` over the hardware frame, NetBSD style), syscall ABI (D23:
@@ -200,42 +202,47 @@ implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
       PIC32-only syscalls and `cpu_sysctl` (D24: `ustore`/`ufetch`/`ucall`
       removed, slots 152-154 reserved)
 - [ ] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
-      `trap.c`): common entry and exit through the trap frame, kernel faults
-      print the registers and panic. Includes the FPU exception vectors and
-      the line-F trap, posting `SIGFPE`/`SIGILL` (D12). Smoke test: bus
-      error and illegal instruction give a register dump
+      `trap.c`): `sys/m68k/frame.h` with `struct trapframe` (D22), and
+      `u.u_frame` in `user.h` becomes `struct trapframe *`, set on traps
+      from user mode. Common entry and exit through the trap frame, kernel
+      faults print the registers and panic. Includes the FPU exception
+      vectors and the line-F trap, posting `SIGFPE`/`SIGILL` (D12). Smoke
+      test: bus error and illegal instruction give a register dump
 - [ ] 2. Goldfish PIC and RTC alarm as the clock tick (IPL 6, alarm re-armed
       each tick, `hardclock`); `spl*` stay two-level (D16). Smoke test:
-      ticks advance and a `timeout()` callback fires
+      ticks advance and a `timeout()` callback fires. Depends on 1
 - [ ] 3. Context switch: `setjmp`/`longjmp` with the `u`/`u0` swap, including
       the user FPU state (`fsave`/`fmovem`, `fmovem`/`frestore`) kept in the
       `u` area (D12). First check that QEMU's 68030 supports `fsave`/
       `frestore`. Smoke test: two contexts switch, the `u` area and FP
-      registers survive
-- [ ] 4. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
-      mode: arguments, results in `d0`/`d1`, carry on error, restart
-- [ ] 5. m68k trap frame users (D22): `u.u_frame` becomes `struct
-      trapframe *`; `exec_subr.c` (`exec_setupstack`, `exec_clear`; the m68k
-      ABI passes `argc`/`argv`/`envp` on the stack), `sys_process.c` and the
-      pipe return value in `sys_pipe.c` use its fields. Re-enable the three files in `sys/m68k/files.kconf` and
-      drop their stubs from `stubs.c`
-- [ ] 6. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
+      registers survive. Depends on 1
+- [ ] 4. `copyin`/`copyout` exist (M2 `machdep.c`) but only range-check;
+      review them against the user region before the syscall path relies
+      on the same check for its arguments
+- [ ] 5. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
+      mode: arguments, results in `d0`/`d1`, carry on error, restart.
+      Depends on 1 and 4
+- [ ] 6. m68k trap frame users (D22): `exec_subr.c` (`exec_setupstack`,
+      `exec_clear`; the m68k ABI passes `argc`/`argv`/`envp` on the
+      stack), `sys_process.c` and the pipe return value in `sys_pipe.c` use
+      the `struct trapframe` fields. Re-enable the three files in
+      `sys/m68k/files.kconf` and drop their stubs from `stubs.c`. Depends
+      on 1 and 5
+- [ ] 7. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
       holds the FPU state (D12). Smoke test: signal frame round trip in user
-      mode
-- [ ] 7. Process 1 entry: m68k `icode`, and `startup.S` enters user mode at
+      mode. Depends on 3 and 5
+- [ ] 8. Process 1 entry: m68k `icode`, and `startup.S` enters user mode at
       `USER_DATA_START` when `main` returns in process 1, as PIC32's reset
       code does. Smoke test: user code runs and its `exit` syscall is
-      handled. Running `init` itself is M4 (D21)
-- [ ] 8. `copyin`/`copyout` exist (M2 `machdep.c`) but only range-check;
-      review them against the user region now that user mode runs
+      handled. Running `init` itself is M4 (D21). Depends on 3 and 5
 - [ ] 9. Goldfish TTY receive interrupt (PIC 1, source 32) feeding
-      `ttyinput`, so `read()` on the console works
-- [ ] 10. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20).
+      `ttyinput`, so `read()` on the console works. Depends on 2
+- [ ] 10. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
+      so only a read-back is checked
+- [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20).
       Already done (D24): `ucall`/`ufetch`/`ustore` removed, `cpu_sysctl`
       in `sys/m68k/sysctl.c`; its smoke test (`sysctl` from user mode for
-      each id) needs the syscall path of task 4
-- [ ] 11. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
-      so only a read-back is checked
+      each id) needs the syscall path of task 5. Depends on 3 and 5-8
 
 ## M4: Storage and filesystem (endianness work)
 - [ ] virtio-mmio block driver; add it to `devices.kconf` and switch the
