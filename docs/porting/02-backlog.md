@@ -193,11 +193,12 @@ each part is proven by its own smoke test; the kernel boot test still ends at
 the D20 root filesystem panic. Running process 1 is M4 (D21). Tasks are in
 implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
 
-- [ ] 0. Record the M3 decisions: trap frame layout (D22: `struct
+- [x] 0. Record the M3 decisions: trap frame layout (D22: `struct
       trapframe` over the hardware frame, NetBSD style), syscall ABI (D23:
       `trap #0`, number in `d0`, arguments on the user stack, results in
       `d0`/`d1`, carry set and `errno` in `d0` on error) and the
-      PIC32-only syscalls (`ufetch`/`ustore`/`ucall` return `EINVAL`)
+      PIC32-only syscalls and `cpu_sysctl` (D24: `ustore`/`ufetch`/`ucall`
+      removed, slots 152-154 reserved)
 - [ ] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
       `trap.c`): common entry and exit through the trap frame, kernel faults
       print the registers and panic. Includes the FPU exception vectors and
@@ -229,9 +230,10 @@ implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
       review them against the user region now that user mode runs
 - [ ] 9. Goldfish TTY receive interrupt (PIC 1, source 32) feeding
       `ttyinput`, so `read()` on the console works
-- [ ] 10. Remaining stubs: `cpu_sysctl` (machine-independent parts of
-      `sys/pic32/sysctl.c`), `ufetch`/`ustore`/`ucall`; `sys/m68k/stubs.c`
-      is empty and removed (D20)
+- [ ] 10. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20).
+      Already done (D24): `ucall`/`ufetch`/`ustore` removed, `cpu_sysctl`
+      in `sys/m68k/sysctl.c`; its smoke test (`sysctl` from user mode for
+      each id) needs the syscall path of task 4
 - [ ] 11. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
       so only a read-back is checked
 
@@ -270,6 +272,9 @@ implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
       (`#else` tokens), `cmd/mail.c` and `cmd/cron/popen.c`
       (`-Wparentheses`)
 - [ ] Boot to a shell in QEMU; smoke test core commands
+- [ ] Revisit `basic` PEEK/POKE (low priority): they are no-ops since the
+      `ufetch`/`ustore` syscalls were removed (D24). Options: direct memory
+      access, `/dev/mem`, or keep them disabled
 
 ## M6: Optional / future
 - [ ] 68030 PMMU for process protection

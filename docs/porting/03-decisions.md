@@ -342,3 +342,37 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   (with `moves` and fault recovery, which an MMU kernel needs for
   `copyin`/`copyout` anyway); libc stubs, results, error flag and restart
   rule stay the same.
+
+## D24: PIC32-only syscalls and machine-dependent sysctl
+- **Context:** `sys/pic32/sysctl.c` holds three 2BSD-style syscalls and
+  `cpu_sysctl`. `ucall` (154, superuser only) calls any kernel function at
+  a given `spl`; it comes from 2.11BSD on the PDP-11, where PIC32 used it
+  for driver probe and attach code. `ustore` (152) and `ufetch` (153,
+  superuser only) write and read one word at any address; they are
+  RetroBSD additions that reused 2.11BSD's PDP-11 slots `nostk` and
+  `fetchi`, so flash and I/O registers could be reached from user mode.
+  4.4BSD and NetBSD have none of the three. Users in `src/`: `basic`
+  PEEK/POKE (`ufetch`/`ustore`); `adb`'s opcode names (out of scope, D8);
+  the `autoconfig(8)` man page mentions `ucall`. `cpu_sysctl` mixes
+  machine-independent entries with PIC32 hardware ones.
+- **Decision:**
+  - `ustore`, `ufetch` and `ucall` are removed. Slots 152-154 in
+    `init_sysent.c` become `{ 0, nosys }` (`"#152"`-`"#154"` in
+    `syscalls.c`) and stay reserved, so later syscall numbers do not move.
+    `SYS_ustore`/`SYS_ufetch`/`SYS_ucall`, the `systm.h` prototypes, the
+    stubs, the `ucall(2)` man page and its `rootfs.manifest` entry go; the
+    libc wrappers are not carried over to `src/libc/m68k`. The PIC32 and
+    MIPS sources stay as reference (D11).
+  - `basic` PEEK/POKE become no-ops (POKE does nothing, PEEK returns 0) so
+    the userland builds; they are revisited, at low priority, in M5.
+  - `cpu_sysctl` moves to `sys/m68k/sysctl.c` with the three ids that
+    `sys/m68k/cpu.h` already keeps: `CPU_CONSDEV` (console device),
+    `CPU_ERRMSG` (the `errlist` table, for libc `strerror`) and `CPU_NLIST`
+    (the kernel symbol table, for `knlist` in `ps`, `pstat`, `vmstat`,
+    `iostat`, `fstat` and `devupdate`). The PIC32 SD card timeouts, CPU and
+    bus clock rates and TMSCP are dropped. `CPU_NLIST` copies the symbol
+    name in with `copyin` (at most 16 bytes) instead of reading the user
+    pointer directly, so a bad address gives `EFAULT`.
+- **Consequences:** a program using syscalls 152-154 gets `SIGSYS`/`ENOSYS`
+  like any unused slot. User code can no longer call kernel functions;
+  that would also be wrong under a future MMU.
