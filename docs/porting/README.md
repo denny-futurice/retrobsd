@@ -80,10 +80,48 @@ console output, with QEMU's exit status, before its result.
 
 ## Running a kernel image on QEMU
 
+Build the kernel in its board directory and boot it:
+
 ```shell
-qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel <image.elf> -nographic
-# to debug, add -s -S and attach gdb-multiarch:
-#   gdb-multiarch -ex "set architecture m68k" -ex "target remote :1234" <image.elf>
+make -C sys/m68k/virt -j$(nproc)
+qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel sys/m68k/virt/unix.elf -nographic
 ```
 
-Exit QEMU with `Ctrl-A X`.
+QEMU loads the ELF and passes its bootinfo records (memory size, CPU) after `_end`. The
+console is the Goldfish TTY on stdio. Until M4 there is no root filesystem, so the kernel ends
+with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
+(exit status 0). Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
+images in `$OUT` (default `/tmp/retrobsd-m68k-smoke`).
+
+## Debugging the kernel with GDB
+
+Build with debug info. `DEBUG` on the command line does the same as regenerating the board
+Makefile with `kconfig -g`, without changing the committed Makefile; `make clean` first, since
+objects built without `-g` are not rebuilt otherwise (and again afterwards to drop `-g`):
+
+```shell
+make -C sys/m68k/virt clean
+make -C sys/m68k/virt -j$(nproc) DEBUG=-g
+```
+
+Start QEMU stopped at the first instruction (`-S`) with a GDB server on port 1234 (`-s`), and
+attach `gdb-multiarch` from a second terminal. GDB takes the architecture from the ELF:
+
+```shell
+qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel sys/m68k/virt/unix.elf -nographic -s -S
+gdb-multiarch -ex "target remote :1234" sys/m68k/virt/unix.elf
+```
+
+```
+(gdb) break main
+(gdb) break panic
+(gdb) continue                  # stops in main, then continue again to stop in panic
+(gdb) bt                        # panic called from main () at init_main.c:159
+(gdb) info registers pc ps sp   # GDB names the status register "ps", not "sr"
+(gdb) x/2i $pc
+(gdb) x/4xw 0                   # vector table: initial SSP, reset PC, bus and address error
+(gdb) kill                      # also ends QEMU
+```
+
+`break badtrap` catches unexpected exceptions; its arguments are the vector number, the PC and
+the SR of the faulting instruction.

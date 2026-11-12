@@ -180,7 +180,12 @@ life (no separate banner). There is no disk yet (D20).
       the objects after `SYSTEM_DEP`'s order-only `|`, so editing a source
       rebuilt its object but never relinked the kernel. Fixed in
       `tools/kconfig/mkmakefile.c` (objects first)
-- [ ] Document the QEMU invocation and a GDB recipe
+- [x] Document the QEMU invocation and a GDB recipe
+      Done in `docs/porting/README.md` ("Running a kernel image on QEMU",
+      "Debugging the kernel with GDB"), checked against `unix.elf`: debug
+      build with `make DEBUG=-g` (same as `kconfig -g`, no Makefile
+      change), QEMU `-s -S`, `gdb-multiarch` breakpoints on `main` and
+      `panic`, registers and the vector table
 
 ## M3: Traps, syscalls, scheduling
 - [ ] Exception and trap handling (`exception.c` equivalent)
