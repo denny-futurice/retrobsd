@@ -146,7 +146,9 @@ life (no separate banner). There is no disk yet (D20).
       `badtrap` prints and panics. Also ported unchanged from PIC32: the
       kernel tables, `ffs` (with `bfffo`), the string and memory routines
       and `copyin`/`copyout` (range checks against the fixed user region,
-      no fault recovery). Checked on QEMU with a throwaway harness
+      no fault recovery). Covered by the `bootinfo`, `kstring`, `useraddr`,
+      `udelay` and `halt` smoke tests in `make check`, which link
+      `machdep.c` with kernel stubs (`smoke/ktest.c`)
 - [x] Goldfish TTY console: polled `cnputc` only; the interrupt-driven tty
       side is M3
       Done. `sys/m68k/cons.c` is `sys/pic32/cons.c` unchanged; the driver

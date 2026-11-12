@@ -53,6 +53,9 @@ the port will use.
 `startup` and `badvec` link with the kernel's `sys/m68k/startup.S` and
 `sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
 `smoke_bss` array through QEMU's loader device so a missing BSS clear is caught.
+The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machdep.c`, with
+`ktest.c` standing in for the rest of the kernel; they stop QEMU through `boot(RB_HALT)`, and
+`run.sh` checks that `halt` makes QEMU exit by itself with status 0.
 
 | Test    | Checks                                            | Expected output |
 |---------|---------------------------------------------------|-----------------|
@@ -60,6 +63,11 @@ the port will use.
 | `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
 | `startup` | kernel `startup.S`: BSS clear, stack, VBR       | `startup ok`    |
 | `badvec`  | unexpected exception reaches `badtrap()`        | `badvec ok`     |
+| `bootinfo` | `startup()` takes `physmem` from QEMU bootinfo | `bootinfo ok`   |
+| `kstring`  | `ffs`, string and memory routines              | `kstring ok`    |
+| `useraddr` | `baduaddr`/`badkaddr`, `copyin`/`copyout` range checks | `useraddr ok` |
+| `udelay`   | `udelay()` timing against the Goldfish RTC     | `udelay ok`     |
+| `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix.
