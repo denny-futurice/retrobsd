@@ -239,3 +239,18 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `printf`, table setup and `panic()` without a disk. M3 empties and
   deletes `stubs.c`; M4 replaces the stubbed root and swap with the virtio
   block device in `Config` and `devices.kconf`.
+
+## D21: Running the first user process moves from M3 to M4
+- **Context:** M3 listed "run a static `init` as a user process". That
+  needs a root filesystem (`main()` panics at `mountfs` before it creates
+  process 1, D20), storage is M4, and a real `init` needs the M5 libc
+  (`crt0`, syscall stubs) and a `/dev/console` node on the image.
+- **Decision:** M3 ends when the machine-dependent kernel code (traps,
+  clock, context switch, syscalls, signals, FPU, process 1 entry) exists,
+  `stubs.c` is gone, and each part is proven by its own smoke test. The
+  kernel boot test still ends at the D20 root filesystem panic. Running
+  process 1 moves to the end of M4, with a freestanding test `init` on the
+  root image; the real `/sbin/init` comes with M5.
+- **Consequences:** M3 smoke tests drive user mode, `trap #0` and context
+  switches directly, without `main()`. The first end-to-end run of process
+  1 happens only once the root filesystem mounts.
