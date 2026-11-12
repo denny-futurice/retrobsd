@@ -194,8 +194,9 @@ the D20 root filesystem panic. Running process 1 is M4 (D21). Tasks are in
 implementation order: 1-4 depend on each other, 9-11 can go anywhere after 2.
 
 - [ ] 0. Record the M3 decisions: trap frame layout (D22: `struct
-      trapframe` over the hardware frame, NetBSD style), syscall ABI (`trap #0`, number in `d0`, arguments on the user stack,
-      results in `d0`/`d1`, carry set and `errno` in `d0` on error) and the
+      trapframe` over the hardware frame, NetBSD style), syscall ABI (D23:
+      `trap #0`, number in `d0`, arguments on the user stack, results in
+      `d0`/`d1`, carry set and `errno` in `d0` on error) and the
       PIC32-only syscalls (`ufetch`/`ustore`/`ucall` return `EINVAL`)
 - [ ] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
       `trap.c`): common entry and exit through the trap frame, kernel faults

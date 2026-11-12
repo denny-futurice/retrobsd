@@ -297,3 +297,48 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   acceptable since MIPS no longer has to build (D11). `adb`, the only
   userland `FRAME_*` user, is out of scope (D8). Register order for ptrace
   and GDB stays `d0`-`a7`, `sr`, `pc`.
+
+## D23: Syscall ABI: `trap #0`, number in `d0`, arguments on the user stack
+- **Context:** PIC32 encodes the syscall number in the `syscall`
+  instruction, passes arguments in `a0`-`a3` (5 and 6 on the stack), and on
+  error returns to a different instruction in the stub with `errno` in
+  `t0`. The 68030 has only 16 trap vectors, so the number cannot be in the
+  instruction. The kernel needs at most 6 arguments, all 32-bit (`off_t` is
+  `long`); only `pipe` returns a second value; `fork` returns 0 in the
+  child and the pid in the parent as its normal result; `sigaction` takes
+  the libc signal trampoline address as a hidden 4th argument. The ABI is
+  fixed now because the kernel syscall path (M3 task 4), the signal code
+  (task 6) and the M5 libc stubs depend on it.
+- **Decision:** the BSD m68k convention (NetBSD, 4.4BSD):
+  - System calls are `trap #0` with the syscall number in `d0`. Numbers
+    out of range go to `sysent[0]` (`nosys`).
+  - Arguments stay on the user stack where GCC's calling convention puts
+    them: the kernel reads `sy_narg` longs from `usp + 4` (above the stub's
+    return address) after a `baduaddr` check, and fails with `EFAULT` if
+    they are not in the user region. A stub is
+    `moveq #SYS_x,%d0; trap #0; bcs cerror; rts` (`move.l` instead of
+    `moveq` for numbers above 127). Passing arguments in
+    registers (`d1`-`d5`, `a0`, as Linux m68k does) was rejected: every
+    stub would load and save registers, and the only gain is not reading
+    user memory, which without an MMU is a plain load.
+  - Results: `d0`, and `d1` for the second value (`pipe`).
+  - Errors: the carry flag is set and `d0` holds `errno`; the stub branches
+    with `bcs cerror`. Success clears the carry, so any `d0` value is a
+    valid result.
+  - The kernel preserves every register except `d0`, `d1` and the
+    condition codes; GCC treats `d0`, `d1`, `a0` and `a1` as clobbered by
+    calls anyway.
+  - `ERESTART` sets `tf_pc` back by 2 (the size of `trap #0`) and leaves
+    `d0`, which still holds the syscall number. `EJUSTRETURN`
+    (`sigreturn`) leaves the trap frame (D22) untouched.
+  - The libc `sigaction` stub passes the trampoline address as a real 4th
+    stack argument. The trampoline calls `sigreturn`, then `exit` if that
+    fails, as on PIC32; its frame layout is M3 task 6.
+  - `trap #1` to `trap #15` from user mode raise `SIGILL`; none is reserved
+    while debuggers are out of scope (D8).
+- **Consequences:** syscall stubs are four instructions. The convention
+  also works with an MMU, as NetBSD on the 68030 shows: only the kernel's
+  argument fetch changes, from a range check and direct load to a `copyin`
+  (with `moves` and fault recovery, which an MMU kernel needs for
+  `copyin`/`copyout` anyway); libc stubs, results, error flag and restart
+  rule stay the same.
