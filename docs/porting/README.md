@@ -56,6 +56,10 @@ the port will use.
 The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machdep.c`, with
 `ktest.c` standing in for the rest of the kernel; they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
+The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
+`Makefile` (in place and incremental, like a developer build; the build log goes to
+`$OUT/kernel-build.log`) and boots it. Without a root filesystem (D20) the kernel panics, and
+`panic()` halts QEMU, so the test expects the panic message and exit status 0.
 
 | Test    | Checks                                            | Expected output |
 |---------|---------------------------------------------------|-----------------|
@@ -68,9 +72,11 @@ The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machde
 | `useraddr` | `baduaddr`/`badkaddr`, `copyin`/`copyout` range checks | `useraddr ok` |
 | `udelay`   | `udelay()` timing against the Goldfish RTC     | `udelay ok`     |
 | `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
+| `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
-different toolchain prefix.
+different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's
+console output, with QEMU's exit status, before its result.
 
 ## Running a kernel image on QEMU
 

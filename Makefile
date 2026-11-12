@@ -42,8 +42,9 @@ all: tools
 .PHONY: check
 
 # Validate the m68k toolchain and QEMU with the freestanding smoke tests (see docs/porting).
+# `make check V=1` also prints each test's console output.
 check:
-		sh docs/porting/smoke/run.sh
+		sh docs/porting/smoke/run.sh $(if $(V),-v)
 
 .PHONY: kernel
 kernel: $(CONFIG) tools

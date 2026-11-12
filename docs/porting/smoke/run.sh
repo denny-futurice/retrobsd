@@ -4,6 +4,7 @@
 #
 #   sh run.sh            run all tests
 #   sh run.sh fpu        run one test
+#   sh run.sh -v [test]  also print each test's console output to stdout
 #
 # Tests: hello    toolchain, linker script and QEMU boot
 #        fpu      hardware floating point (D12)
@@ -14,10 +15,19 @@
 #        useraddr machdep.c baduaddr/badkaddr, copyin/copyout range checks
 #        udelay   machdep.c udelay() against the Goldfish RTC
 #        halt     machdep.c boot(RB_HALT) stops QEMU (exit status 0)
+#        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The machdep tests link sys/m68k/machdep.c with ktest.c, which stubs the
-# rest of the kernel.
+# rest of the kernel.  The kernel test builds sys/m68k/virt/unix.elf with
+# the board Makefile (in place, like a developer build; the products are
+# gitignored) and boots it.
 set -e
+
+verbose=
+if [ "$1" = -v ]; then
+    verbose=yes
+    shift
+fi
 
 CROSS=${CROSS:-m68k-linux-gnu-}
 here=$(cd "$(dirname "$0")" && pwd)
@@ -41,6 +51,7 @@ expected() {
     badvec) echo "badvec ok" ;;
     bootinfo|kstring|useraddr|udelay) echo "$1 ok" ;;
     halt) echo "halted" ;;
+    kernel) echo "panic: No root filesystem found!" ;;
     esac
 }
 
@@ -51,9 +62,52 @@ command -v gdb-multiarch >/dev/null || echo "warning: gdb-multiarch not found (d
 ${CROSS}gcc --version | head -1
 qemu-system-m68k --version | head -1
 
+# Run an ELF on QEMU; prints its console output and "qemu exit status N".
+# Most tests spin forever after printing, so stop QEMU after a short timeout;
+# the machdep tests and the kernel halt QEMU themselves.  stdin is /dev/null:
+# timeout runs QEMU outside the terminal's foreground group, and QEMU setting
+# tty modes on stdin would stop it with SIGTTOU.
+run_qemu() {
+    rc=0
+    timeout 5 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel "$@" \
+        -nographic -serial stdio -monitor none </dev/null 2>/dev/null || rc=$?
+    echo "qemu exit status $rc"
+}
+
+# Check the output of run_qemu against the expected string.  Tests that
+# halt must also have stopped QEMU by themselves, with exit status 0.
+check_result() {
+    name=$1 result=$2 halts=$3
+    want=$(expected "$name")
+    if [ -n "$verbose" ]; then
+        echo "--- $name output"
+        printf '%s\n' "$result" | tr -d '\r' | sed 's/^/  /'
+    fi
+    if [ -n "$halts" ]; then
+        case "$result" in
+        *"qemu exit status 0") ;;
+        *) echo "FAIL $name: QEMU did not exit by itself: '$result'" >&2; return 1 ;;
+        esac
+    fi
+    case "$result" in
+    *"$want"*) echo "PASS $name" ;;
+    *) echo "FAIL $name: expected '$want', got '$result'" >&2; return 1 ;;
+    esac
+}
+
+run_kernel() {
+    board=$top/sys/m68k/virt
+    if ! make -C "$board" -j"$(nproc)" CROSS="$CROSS" unix.elf >"$out/kernel-build.log" 2>&1; then
+        echo "FAIL kernel: build failed, see $out/kernel-build.log" >&2
+        tail -20 "$out/kernel-build.log" >&2
+        return 1
+    fi
+    check_result kernel "$(run_qemu "$board/unix.elf")" halts
+}
+
 run_test() {
     name=$1
-    want=$(expected "$name")
+    [ "$name" = kernel ] && { run_kernel; return; }
     # Tests from startup on use the kernel's own startup code and memory map.
     case "$name" in
     startup|badvec|bootinfo|kstring|useraddr|udelay|halt)
@@ -76,25 +130,13 @@ run_test() {
     prefill=
     bss=$(${CROSS}nm "$out/$name.elf" | awk '$3 == "smoke_bss" { print $1 }')
     [ -n "$bss" ] && prefill="-device loader,addr=0x$bss,data=0xdeadbeef,data-len=4"
-    # Most tests spin forever after printing, so stop QEMU after a short
-    # timeout; the machdep tests halt QEMU themselves.  stdin is /dev/null:
-    # timeout runs QEMU outside the terminal's foreground group, and QEMU
-    # setting tty modes on stdin would stop it with SIGTTOU.
-    result=$(timeout 5 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel "$out/$name.elf" \
-        -nographic -serial stdio -monitor none $prefill </dev/null 2>/dev/null; \
-        echo "qemu exit status $?")
-    case "$name:$result" in
-    halt:*"qemu exit status 0") ;;
-    halt:*) echo "FAIL $name: QEMU did not exit by itself: '$result'" >&2; return 1 ;;
-    esac
-    case "$result" in
-    *"$want"*) echo "PASS $name" ;;
-    *) echo "FAIL $name: expected '$want', got '$result'" >&2; return 1 ;;
-    esac
+    halts=
+    [ "$name" = halt ] && halts=yes
+    check_result "$name" "$(run_qemu "$out/$name.elf" $prefill)" $halts
 }
 
 status=0
-for t in ${1:-hello fpu startup badvec bootinfo kstring useraddr udelay halt}; do
+for t in ${1:-hello fpu startup badvec bootinfo kstring useraddr udelay halt kernel}; do
     run_test "$t" || status=1
 done
 exit $status

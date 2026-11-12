@@ -21,7 +21,8 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **Out of scope:** Amiga hardware and native on-target compilers/tools (`as`, `ld`, `cc`, `adb`,
   `aout`, `ccom`, `lcc`, `smlrc`, ...).
 - **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
-  (toolchain/boot, FPU, the kernel `startup.S` and `machdep.c`) on QEMU
+  (toolchain/boot, FPU, the kernel `startup.S` and `machdep.c`, and a whole-kernel build and
+  boot) on QEMU
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - **Editor/clangd:** `sys/`, `src/` and `include/compile_flags.txt` plus the top `.clangd` make
   clangd parse for m68k against the tree's headers only (see docs/porting/README.md). Keep them in

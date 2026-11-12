@@ -172,7 +172,14 @@ life (no separate banner). There is no disk yet (D20).
       stubbed. `unix.elf` links (76 KB text) and on QEMU prints the banner,
       `gftty0` probe and `panic: No root filesystem found!`, then halts
       with exit status 0. Checked by hand; step 6 adds it to `make check`
-- [ ] Kernel boot test in `make check`: expect the `panic()` message
+- [x] Kernel boot test in `make check`: expect the `panic()` message
+      Done: the `kernel` smoke test runs `make` in `sys/m68k/virt` and
+      boots `unix.elf`, expecting `panic: No root filesystem found!` and
+      QEMU exit status 0. Mutation-tested (build error, no halt, earlier
+      panic). This found a kconfig bug: the generated `unix.elf` rule put
+      the objects after `SYSTEM_DEP`'s order-only `|`, so editing a source
+      rebuilt its object but never relinked the kernel. Fixed in
+      `tools/kconfig/mkmakefile.c` (objects first)
 - [ ] Document the QEMU invocation and a GDB recipe
 
 ## M3: Traps, syscalls, scheduling
