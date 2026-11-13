@@ -42,6 +42,8 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Context:** Too far downstream of the current backlog.
 - **Decision:** No Amiga work. Keep board code behind the kconfig board
   abstraction (`sys/m68k/<board>/`) so another board can be added later.
+- **Superseded in part by D25:** the Amiga becomes the first real hardware
+  board, as M6 work; it stays out of scope until then.
 
 ## D8: Native on-target compilers and tools are out of scope
 - **Decision:** `as`, `ld`, `cc`, `adb`, `aout`, PCC/`ccom`, `lcc`, `lccom`,
@@ -376,3 +378,31 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** a program using syscalls 152-154 gets `SIGSYS`/`ENOSYS`
   like any unused slot. User code can no longer call kernel functions;
   that would also be wrong under a future MMU.
+
+## D25: Code QEMU cannot exercise is written against the manuals
+- **Context:** A probe on QEMU 11.1.2 (`-M virt -cpu m68030`) showed that
+  QEMU raises illegal instruction, line A/F, privilege violation, trace,
+  divide by zero, `CHK`, `TRAPV` and `trap #n` correctly, but does not
+  emulate: bus errors (unassigned reads return data, writes are dropped;
+  only `-cpu m68040` faults, with a 68040 frame), address errors (an odd
+  jump target gives an illegal instruction), FPU exceptions (enabled
+  exceptions only set `FPSR` bits), `fsave`/`frestore` (illegal on the
+  68030 model), `rte` format errors and the 68030 PMMU (`pmove` is a line F
+  trap). Musashi, checked as an alternative, has no 68030 bus or address
+  error frames and no FPU exceptions either. The affected code is small and
+  isolated: the bus/address error entry and frame trimming, the FPU
+  exception entry, and the FPU state save in the context switch and signal
+  frame.
+- **Decision:** that code is written against the MC68030 and MC68881/68882
+  user's manuals (and NetBSD as reference, D22) without emulator
+  validation for now. Its smoke tests on QEMU hand-build the exception
+  frames and FPU state frames from the manuals and enter the handlers
+  directly, so the handler logic is tested even though the CPU behaviour
+  is not. Real validation waits for the first real hardware board, the
+  Amiga, which brings WinUAE into the flow (M6). No other emulator core is
+  integrated now.
+- **Consequences:** a misreading of the manuals shows up only on WinUAE or
+  hardware; the M6 validation task lists the code to recheck. The QEMU
+  limits are listed in `docs/porting/README.md`. `fsave`/`frestore` being
+  illegal on QEMU's 68030 must be handled by the context switch (M3 task
+  3), which decides how.

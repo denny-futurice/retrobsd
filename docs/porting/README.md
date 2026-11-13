@@ -6,7 +6,8 @@ PIC32. PIC32 support is abandoned in this fork (see D11), but its code and
 documentation remain in the tree as reference while porting.
 
 In scope: kernel, RetroBSD libc and userland, cross-built with vanilla GCC.
-Out of scope: Amiga hardware and the native on-target compilers and tools.
+Out of scope: Amiga hardware (until M6, D25) and the native on-target compilers
+and tools.
 
 ## Documents
 
@@ -92,6 +93,16 @@ console is the Goldfish TTY on stdio. Until M4 there is no root filesystem, so t
 with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
 (exit status 0). Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
 images in `$OUT` (default `/tmp/retrobsd-m68k-smoke`).
+
+### QEMU limitations
+
+QEMU's 68030 model (checked on QEMU 11.1.2) does not emulate bus errors
+(unassigned memory reads return data, writes are dropped), address errors
+(an odd jump target raises an illegal instruction), FPU exceptions
+(enabled exceptions only set `FPSR` bits), `fsave`/`frestore` (illegal
+instructions), `rte` format errors or the 68030 PMMU (`pmove` raises a
+line F trap). Code for these is written against the Motorola manuals and
+tested with hand-built frames; real validation is M6, on WinUAE (D25).
 
 ## Debugging the kernel with GDB
 

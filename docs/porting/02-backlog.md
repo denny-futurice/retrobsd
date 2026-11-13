@@ -207,7 +207,9 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       from user mode. Common entry and exit through the trap frame, kernel
       faults print the registers and panic. Includes the FPU exception
       vectors and the line-F trap, posting `SIGFPE`/`SIGILL` (D12). Smoke
-      test: bus error and illegal instruction give a register dump
+      tests: illegal instruction gives a register dump; user-mode faults
+      post the right signal; bus error and FPU exception handling run on
+      hand-built frames, since QEMU raises neither (D25)
 - [ ] 2. Goldfish PIC and RTC alarm as the clock tick (IPL 6, alarm re-armed
       each tick, `hardclock`); `spl*` stay two-level (D16). Smoke test:
       ticks advance and a `timeout()` callback fires. Depends on 1
@@ -285,6 +287,15 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
 
 ## M6: Optional / future
 - [ ] 68030 PMMU for process protection
+- [ ] Real MMU and fault validation (D25): on WinUAE or hardware, recheck
+      the code written against the manuals: bus and address error entry
+      and frame trimming (format A/B), FPU exception entry, `fsave`/
+      `frestore` in the context switch and signal frame, and the PMMU
+      code. QEMU's 68030 model emulates none of these
+- [ ] Prepare a real hardware board: the Amiga (D7, D25). Add WinUAE to the
+      development flow, a `sys/m68k/<board>/` directory with its `Config`,
+      console and timer drivers, and a boot path (second stage
+      bootloader)
 - [ ] Larger memory configuration and tuning beyond the 128 KB heritage limits
 - [ ] Performance improvements, measured on QEMU before adopting any change.
       Candidates:
