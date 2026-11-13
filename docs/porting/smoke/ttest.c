@@ -1,13 +1,16 @@
 /*
- * Support for the smoke tests that link the kernel's locore.S and trap.c
- * (with machdep.c and ktest.c): the scheduler and signal symbols trap()
- * calls, entry to user mode, and hand-built exception frames for what
- * QEMU does not raise (D25).  Not a test itself.
+ * Support for the smoke tests that link the kernel's locore.S, trap.c,
+ * clock.c and kern_clock.c (with machdep.c and ktest.c): the scheduler,
+ * signal and time symbols they use, entry to user mode, and hand-built
+ * exception frames for what QEMU does not raise (D25).  Not a test itself.
  */
 #include "ttest.h"
+#include <sys/kernel.h>
 #include <sys/vmmeter.h>
 
 int runrun;
+struct timeval time;                    /* kern_time.c */
+int adjdelta, lbolt;
 char curpri;
 int ustack[USTACK];
 u_int fake_ssp;

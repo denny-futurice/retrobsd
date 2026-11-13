@@ -11,7 +11,8 @@
 #include "ktest.h"
 
 size_t physmem;
-int boothowto, noproc;
+int boothowto;
+__attribute__((weak)) int noproc;       /* kern_clock.c, if linked */
 dev_t rootdev, dumpdev = NODEV;
 struct conf_ctlr conf_ctlr_init[1];
 struct conf_device conf_device_init[1];

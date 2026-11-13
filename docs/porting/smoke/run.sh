@@ -23,11 +23,16 @@
 #                 frame) gives SIGBUS, frame trimmed to format 0 (D26)
 #        ufpe     trap.c: user FPU exception (hand-built frame) gives SIGFPE
 #        fpbiu    trap.c fpfault_clear() on hand-built 68881/2 state frames
+#        tick     clock.c, trap.c: the RTC 1 alarm ticks at HZ (D27)
+#        callout  kern_clock.c timeout() fires on the tick it was due
+#        todr     clock.c inittodr(): time of day from RTC 2, or the
+#                 file system time if the RTC is behind it
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
-# the kernel; the trap tests also add trap.c and ttest.c.  The kernel test
+# the kernel; the trap tests also add trap.c, clock.c, kern_clock.c and
+# ttest.c.  The kernel test
 # builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
 # developer build; the products are gitignored) and boots it.
 set -e
@@ -59,7 +64,7 @@ expected() {
     startup) echo "startup ok" ;;
     bootinfo|kstring|useraddr|udelay) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
-    uill|upriv|utrace|udivz|buserr|ufpe|fpbiu) echo "$1 ok" ;;
+    uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -128,7 +133,7 @@ run_test() {
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
     machdep="bootinfo kstring useraddr udelay halt"
-    traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu"
+    traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -150,8 +155,10 @@ run_test() {
     fi
     if [ $class = trap ]; then
         build ${CROSS}gcc $cflags -c "$top/sys/m68k/trap.c" -o "$out/trap.o"
+        build ${CROSS}gcc $cflags -c "$top/sys/m68k/clock.c" -o "$out/clock.o"
+        build ${CROSS}gcc $cflags -c "$top/sys/kernel/kern_clock.c" -o "$out/kern_clock.o"
         build ${CROSS}gcc $cflags -c "$here/ttest.c" -o "$out/ttest.o"
-        objs="$objs $out/trap.o $out/ttest.o"
+        objs="$objs $out/trap.o $out/clock.o $out/kern_clock.o $out/ttest.o"
     fi
     build ${CROSS}gcc $cflags -c "$here/$name.c" -o "$out/$name.o"
     build ${CROSS}gcc $cflags -c "$crt" -o "$out/$name-crt.o"
@@ -172,7 +179,7 @@ run_test() {
 
 status=0
 for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt \
-        ktrap uill upriv utrace udivz buserr ufpe fpbiu kernel}; do
+        ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr kernel}; do
     run_test "$t" || status=1
 done
 exit $status
