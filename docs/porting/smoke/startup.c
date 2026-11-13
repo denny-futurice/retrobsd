@@ -14,9 +14,16 @@ static void puts_(const char *s)
         *TTY = (unsigned char)*s++;
 }
 
-void badtrap(int vec, unsigned pc, int sr)
+/* The vector table points into locore.S, which calls these. */
+void trap(void *frame)
 {
     puts_("startup unexpected trap\n");
+    for (;;)
+        continue;
+}
+
+void fpfault_clear(unsigned char *state)
+{
 }
 
 int main(void)

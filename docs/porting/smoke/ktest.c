@@ -1,7 +1,7 @@
 /*
  * Support for the smoke tests that link the kernel's machdep.c: the kernel
- * symbols machdep.c needs, a console that writes straight to the Goldfish
- * TTY, and a check() helper.  Not a test itself.
+ * symbols machdep.c and locore.S need, a console that writes straight to
+ * the Goldfish TTY, and a check() helper.  Not a test itself.
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -61,6 +61,21 @@ check(const char *what, int ok)
         kputs("\n");
         failed = 1;
     }
+}
+
+/*
+ * The vector table points into locore.S, which calls trap() and
+ * fpfault_clear(); tests that link trap.c get the real ones.
+ */
+__attribute__((weak)) void
+trap(void *frame)
+{
+    panic("unexpected trap");
+}
+
+__attribute__((weak)) void
+fpfault_clear(u_char *state)
+{
 }
 
 /* Print the result and stop QEMU, so the test ends without a timeout. */

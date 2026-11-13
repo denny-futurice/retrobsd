@@ -9,18 +9,27 @@
 # Tests: hello    toolchain, linker script and QEMU boot
 #        fpu      hardware floating point (D12)
 #        startup  kernel startup.S: BSS clear, stack, VBR
-#        badvec   kernel startup.S: unexpected exception reaches badtrap()
 #        bootinfo machdep.c startup(): physmem from the QEMU bootinfo
 #        kstring  machdep.c ffs, string and memory routines
 #        useraddr machdep.c baduaddr/badkaddr, copyin/copyout range checks
 #        udelay   machdep.c udelay() against the Goldfish RTC
 #        halt     machdep.c boot(RB_HALT) stops QEMU (exit status 0)
+#        ktrap    trap.c: a kernel-mode exception dumps registers and panics
+#        uill     trap.c: user illegal instruction gives SIGILL, frame checked
+#        upriv    trap.c: user privileged instruction gives SIGILL
+#        utrace   trap.c: user trace gives SIGTRAP, T cleared
+#        udivz    trap.c: user divide by zero gives SIGFPE
+#        buserr   trap.c, locore.S: user bus error (hand-built format B
+#                 frame) gives SIGBUS, frame trimmed to format 0 (D26)
+#        ufpe     trap.c: user FPU exception (hand-built frame) gives SIGFPE
+#        fpbiu    trap.c fpfault_clear() on hand-built 68881/2 state frames
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
-# The machdep tests link sys/m68k/machdep.c with ktest.c, which stubs the
-# rest of the kernel.  The kernel test builds sys/m68k/virt/unix.elf with
-# the board Makefile (in place, like a developer build; the products are
-# gitignored) and boots it.
+# The tests from startup on link sys/m68k/startup.S and locore.S.  The
+# machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
+# the kernel; the trap tests also add trap.c and ttest.c.  The kernel test
+# builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
+# developer build; the products are gitignored) and boots it.
 set -e
 
 verbose=
@@ -48,8 +57,9 @@ expected() {
     hello) echo "hello m68030" ;;
     fpu) echo "fpu ok" ;;
     startup) echo "startup ok" ;;
-    badvec) echo "badvec ok" ;;
     bootinfo|kstring|useraddr|udelay) echo "$1 ok" ;;
+    ktrap) echo "panic: kernel trap" ;;
+    uill|upriv|utrace|udivz|buserr|ufpe|fpbiu) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -105,38 +115,64 @@ run_kernel() {
     check_result kernel "$(run_qemu "$board/unix.elf")" halts
 }
 
+# Run one build step, logging to $log.  run_test is called in an || list,
+# where set -e does not apply, so failures are recorded in $buildfail.
+build() {
+    "$@" >>"$log" 2>&1 || buildfail=yes
+}
+
 run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
+    log=$out/$name-build.log buildfail=
+    rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
-    case "$name" in
-    startup|badvec|bootinfo|kstring|useraddr|udelay|halt)
-        crt=$top/sys/m68k/startup.S; ld=$top/sys/m68k/virt/kernel.ld ;;
-    *) crt=$here/crt.S; ld=$here/l.ld ;;
-    esac
+    machdep="bootinfo kstring useraddr udelay halt"
+    traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu"
+    class=plain
+    case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
+    case " $machdep " in *" $name "*) class=machdep ;; esac
+    case " $traps " in *" $name "*) class=trap ;; esac
     cflags=$CFLAGS
     objs="$out/$name-crt.o $out/$name.o"
-    case "$name" in
-    bootinfo|kstring|useraddr|udelay|halt)
+    if [ $class = plain ]; then
+        crt=$here/crt.S; ld=$here/l.ld
+    else
+        crt=$top/sys/m68k/startup.S; ld=$top/sys/m68k/virt/kernel.ld
+        build ${CROSS}gcc $KCFLAGS -c "$top/sys/m68k/locore.S" -o "$out/locore.o"
+        objs="$objs $out/locore.o"
+    fi
+    if [ $class = machdep ] || [ $class = trap ]; then
         cflags="$KCFLAGS"
-        ${CROSS}gcc $cflags -c "$top/sys/m68k/machdep.c" -o "$out/machdep.o"
-        ${CROSS}gcc $cflags -c "$here/ktest.c" -o "$out/ktest.o"
-        objs="$objs $out/machdep.o $out/ktest.o" ;;
-    esac
-    ${CROSS}gcc $cflags -c "$here/$name.c" -o "$out/$name.o"
-    ${CROSS}gcc $cflags -c "$crt" -o "$out/$name-crt.o"
-    ${CROSS}ld -T "$ld" -static $objs -o "$out/$name.elf" 2>/dev/null
+        build ${CROSS}gcc $cflags -c "$top/sys/m68k/machdep.c" -o "$out/machdep.o"
+        build ${CROSS}gcc $cflags -c "$here/ktest.c" -o "$out/ktest.o"
+        objs="$objs $out/machdep.o $out/ktest.o"
+    fi
+    if [ $class = trap ]; then
+        build ${CROSS}gcc $cflags -c "$top/sys/m68k/trap.c" -o "$out/trap.o"
+        build ${CROSS}gcc $cflags -c "$here/ttest.c" -o "$out/ttest.o"
+        objs="$objs $out/trap.o $out/ttest.o"
+    fi
+    build ${CROSS}gcc $cflags -c "$here/$name.c" -o "$out/$name.o"
+    build ${CROSS}gcc $cflags -c "$crt" -o "$out/$name-crt.o"
+    [ -z "$buildfail" ] && build ${CROSS}ld -T "$ld" -static $objs -o "$out/$name.elf"
+    if [ -n "$buildfail" ]; then
+        echo "FAIL $name: build failed, see $log" >&2
+        tail -20 "$log" >&2
+        return 1
+    fi
     # Pre-fill smoke_bss, if the test has it, so a missing BSS clear shows.
     prefill=
     bss=$(${CROSS}nm "$out/$name.elf" | awk '$3 == "smoke_bss" { print $1 }')
     [ -n "$bss" ] && prefill="-device loader,addr=0x$bss,data=0xdeadbeef,data-len=4"
     halts=
-    [ "$name" = halt ] && halts=yes
+    [ "$name" = halt ] || [ $class = trap ] && halts=yes
     check_result "$name" "$(run_qemu "$out/$name.elf" $prefill)" $halts
 }
 
 status=0
-for t in ${1:-hello fpu startup badvec bootinfo kstring useraddr udelay halt kernel}; do
+for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt \
+        ktrap uill upriv utrace udivz buserr ufpe fpbiu kernel}; do
     run_test "$t" || status=1
 done
 exit $status
