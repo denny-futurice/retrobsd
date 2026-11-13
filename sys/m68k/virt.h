@@ -10,7 +10,7 @@
  * level (PIC n -> IPL n+1) with 32 sources.
  */
 #define VIRT_GF_PIC_BASE        0xff000000      /* 6 PICs, 0x1000 apart */
-#define VIRT_GF_RTC_BASE        0xff006000      /* 2 RTCs, the second is the timer */
+#define VIRT_GF_RTC_BASE        0xff006000      /* 2 RTCs: tick, time of day (D27) */
 #define VIRT_GF_TTY_BASE        0xff008000
 #define VIRT_CTRL_BASE          0xff009000
 #define VIRT_VIRTIO_BASE        0xff010000      /* 128 virtio-mmio slots, 0x200 apart */
