@@ -426,3 +426,25 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   expected to exit or `longjmp`, and an ignored `SIGBUS` may fault again.
   Demand paging with an MMU (D23 notes) would need the NetBSD scheme
   instead.
+
+## D27: First Goldfish RTC is the clock tick, second is the time of day
+- **Context:** QEMU `virt` has two identical Goldfish RTCs: RTC 1 at
+  `0xff006000` (PIC 6 source 1) and RTC 2 at `0xff007000` (PIC 6 source 2),
+  both at IPL 6. Each counts nanoseconds since the epoch and has one
+  alarm. Writing an RTC's time moves its alarm with it, and a `TIME_LOW`
+  read latches the `TIME_HIGH` value, so two users doing 64-bit reads of
+  the same RTC can corrupt each other. Linux (`arch/m68k/virt`) and NetBSD
+  (`sys/arch/virt68k/dev/mainbus.c`) both use RTC 1 as the timer and RTC 2
+  as the time-of-day clock.
+- **Decision:** the same layout. RTC 1 is the clock tick: its alarm is
+  re-armed each tick at the previous deadline plus `1e9 / HZ` ns (5 ms at
+  `HZ` 200), never from the current time. The tick handler does not read
+  the time; if ticks were missed the new deadline is already past, the
+  alarm fires again at once and the missed ticks are delivered in a burst,
+  as in NetBSD. `udelay` keeps reading RTC 1's `TIME_LOW`. RTC 2 is the
+  time of day: read once at boot, written only if the kernel ever sets
+  the hardware clock, and its interrupt stays disabled. Both RTCs have
+  their interrupt, alarm and pending interrupt cleared at startup.
+- **Consequences:** only PIC 6 source 1 is enabled for the clock. Setting
+  the hardware time cannot disturb the tick. `HZ` stays 200 (an exact
+  number of nanoseconds per tick).

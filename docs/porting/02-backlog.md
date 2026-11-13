@@ -225,9 +225,13 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       Smoke tests `ktrap`, `uill`, `upriv`, `utrace`, `udivz` on QEMU and
       `buserr`, `ufpe`, `fpbiu` on hand-built frames; `run.sh` now
       reports build failures instead of reusing stale objects
-- [ ] 2. Goldfish PIC and RTC alarm as the clock tick (IPL 6, alarm re-armed
-      each tick, `hardclock`); `spl*` stay two-level (D16). Smoke test:
-      ticks advance and a `timeout()` callback fires. Depends on 1
+- [ ] 2. Goldfish PIC and RTC 1 alarm as the clock tick (D27; IPL 6, alarm re-armed
+      each tick, `hardclock`); `spl*` stay two-level (D16). Time of day from
+      RTC 2 at boot: a machine-dependent `inittodr(base)` called from
+      `init_main.c` in place of `time.tv_sec = fs->fs_time`, falling back to
+      the root filesystem time if the RTC reads earlier than it. Smoke tests,
+      one each: ticks advance at `HZ`; a `timeout()` callback fires (linking
+      the real `kern_clock.c`); `inittodr` reads RTC 2. Depends on 1
 - [ ] 3. Context switch: `setjmp`/`longjmp` with the `u`/`u0` swap, including
       the user FPU state (`fsave`/`fmovem`, `fmovem`/`frestore`) kept in the
       `u` area (D12). First check that QEMU's 68030 supports `fsave`/
