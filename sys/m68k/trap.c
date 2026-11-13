@@ -10,6 +10,7 @@
 #include <sys/signalvar.h>
 #include <sys/vmmeter.h>
 #include <machine/frame.h>
+#include <machine/virt.h>
 
 /*
  * locore.S uses these offsets.  C99 has no _Static_assert: a false
@@ -187,14 +188,35 @@ growstack(struct trapframe *tf)
 }
 
 /*
- * Interrupt.  The clock and the devices come in M3 task 2; until then
- * every interrupt is stray.
+ * Interrupt.  Levels 1 to 6 come from the Goldfish PICs (autovectors 25
+ * to 30): run the handler of every pending source.  A source without a
+ * handler is disabled, so that it cannot interrupt again.
  */
 static void
 intr(struct trapframe *tf, int vec)
 {
-    printf("*** stray interrupt, vector %d, level %d\n",
-        vec, (tf->tf_sr & PSL_IPL) >> 8);
+    int level = vec - T_SPURIOUS;
+    u_int pending;
+    int src;
+
+#ifdef UCB_METER
+    cnt.v_intr++;
+#endif
+    if (level < 1 || level > 6) {
+        printf("*** stray interrupt, vector %d\n", vec);
+        return;
+    }
+    pending = VIRT_REG(GF_PIC_ADDR(level, GF_PIC_IRQ_PENDING));
+    for (src = 1; pending; src++, pending >>= 1) {
+        if (! (pending & 1))
+            continue;
+        if (level == VIRT_RTC_TICK_LEVEL && src == VIRT_RTC_TICK_SRC) {
+            clockintr(tf);
+            continue;
+        }
+        printf("*** stray interrupt, level %d, source %d\n", level, src);
+        VIRT_REG(GF_PIC_ADDR(level, GF_PIC_DISABLE)) = GF_PIC_BIT(src);
+    }
 }
 
 /*

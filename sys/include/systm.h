@@ -165,6 +165,12 @@ void dk_alloc (int *dkn, int slots, char *name);
 void coutinit (void);
 
 /*
+ * Set the time of day from the hardware clock, or from base (the root
+ * filesystem time) if the clock is behind it.  Machine dependent.
+ */
+void inittodr (time_t base);
+
+/*
  * Syscalls.
  */
 void    nosys (void);

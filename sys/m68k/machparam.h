@@ -169,6 +169,12 @@ void udelay(unsigned usec);
  */
 void clkstart(void);
 
+/*
+ * The clock tick, from the interrupt dispatch in trap.c.
+ */
+struct trapframe;
+void clockintr(struct trapframe *tf);
+
 #endif /* KERNEL */
 
 #endif /* ENDIAN */

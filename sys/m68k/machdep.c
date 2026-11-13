@@ -124,6 +124,12 @@ read_bootinfo()
 void
 startup()
 {
+    int level;
+
+    /* Mask every interrupt source; drivers enable their own. */
+    for (level = 1; level <= 6; level++)
+        VIRT_REG(GF_PIC_ADDR(level, GF_PIC_DISABLE_ALL)) = 0;
+
     read_bootinfo();
     if (physmem == 0)
         physmem = USER_DATA_END;
@@ -277,25 +283,16 @@ boot(dev_t dev, int howto)
 }
 
 /*
- * Setup system timer for `hz' timer interrupts per second.
- * The clock interrupt is wired up in M3; until then this is a no-op.
- */
-void
-clkstart()
-{
-}
-
-/*
  * Microsecond delay routine.
  *
- * Busy-waits on the Goldfish RTC, which counts nanoseconds.  Only the
+ * Busy-waits on the Goldfish RTC 1, which counts nanoseconds.  Only the
  * low word is used: the signed difference is valid for waits under 2 s,
  * so longer delays are done in one-second steps.
  */
 void
 udelay(u_int usec)
 {
-    volatile unsigned *rtc_low = &VIRT_REG(VIRT_GF_RTC_BASE + GF_RTC_TIME_LOW);
+    volatile unsigned *rtc_low = &VIRT_REG(VIRT_RTC_TICK + GF_RTC_TIME_LOW);
     unsigned final, chunk;
 
     while (usec > 0) {

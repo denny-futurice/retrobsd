@@ -6,8 +6,8 @@
 #define _MACHINE_VIRT_H_
 
 /*
- * Memory mapped devices.  Each Goldfish PIC serves one CPU interrupt
- * level (PIC n -> IPL n+1) with 32 sources.
+ * Memory mapped devices.  Goldfish PICs 1 to 6 drive CPU interrupt levels
+ * 1 to 6 (autovectors 25 to 30); each has 32 sources, numbered from 1.
  */
 #define VIRT_GF_PIC_BASE        0xff000000      /* 6 PICs, 0x1000 apart */
 #define VIRT_GF_RTC_BASE        0xff006000      /* 2 RTCs: tick, time of day (D27) */
@@ -18,11 +18,40 @@
 #define VIRT_REG(addr)          (*(volatile unsigned *)(addr))
 
 /*
- * Goldfish RTC: nanoseconds since the epoch.  Reading TIME_LOW latches
- * the high word, so read TIME_LOW first.
+ * Interrupt sources: PIC (= CPU interrupt level) and source number.
  */
+#define VIRT_RTC_TICK_LEVEL     6               /* RTC 1, the clock tick (D27) */
+#define VIRT_RTC_TICK_SRC       1
+
+/*
+ * Goldfish PIC.  IRQ_PENDING reads the pending and enabled sources,
+ * source n is bit n-1; ENABLE and DISABLE take such a mask.
+ */
+#define GF_PIC_ADDR(level, reg) (VIRT_GF_PIC_BASE + ((level) - 1) * 0x1000 + (reg))
+#define GF_PIC_BIT(src)         (1u << ((src) - 1))
+#define GF_PIC_STATUS           0x00            /* number of pending sources */
+#define GF_PIC_IRQ_PENDING      0x04
+#define GF_PIC_DISABLE_ALL      0x08            /* also clears pending */
+#define GF_PIC_DISABLE          0x0c
+#define GF_PIC_ENABLE           0x10
+
+/*
+ * Goldfish RTC: nanoseconds since the epoch.  Reading TIME_LOW latches
+ * the high word, so read TIME_LOW first.  Writing ALARM_LOW arms the
+ * alarm (write ALARM_HIGH first); an alarm already due fires at once.
+ * The interrupt stays raised until CLEAR_INTERRUPT is written.
+ * RTC 1 is the clock tick, RTC 2 the time of day (D27).
+ */
+#define VIRT_RTC_TICK           VIRT_GF_RTC_BASE
+#define VIRT_RTC_TOD            (VIRT_GF_RTC_BASE + 0x1000)
 #define GF_RTC_TIME_LOW         0x00
 #define GF_RTC_TIME_HIGH        0x04
+#define GF_RTC_ALARM_LOW        0x08
+#define GF_RTC_ALARM_HIGH       0x0c
+#define GF_RTC_IRQ_ENABLED      0x10
+#define GF_RTC_CLEAR_ALARM      0x14
+#define GF_RTC_ALARM_STATUS     0x18
+#define GF_RTC_CLEAR_INTERRUPT  0x1c
 
 /*
  * Goldfish TTY.  Output is one byte per PUT_CHAR write.  Input is read

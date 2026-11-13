@@ -159,7 +159,7 @@ main()
         panic ("No root filesystem found!");
     mount[0].m_inodp = (struct inode*) 1;   /* XXX */
     mount_updname (fs, "/", "root", 1, 4);
-    time.tv_sec = fs->fs_time;
+    inittodr(fs->fs_time);
     boottime = time;
 
     /* Find a swap file. */
