@@ -110,11 +110,17 @@
 /*
  * Status register bits.
  */
+#define PSL_T           0x8000          /* trace on every instruction (T1) */
+#define PSL_T0          0x4000          /* trace on change of flow */
 #define PSL_S           0x2000          /* supervisor mode */
+#define PSL_M           0x1000          /* master stack */
 #define PSL_IPL         0x0700          /* interrupt priority mask */
 #define PSL_IPL7        0x0700          /* all interrupts masked */
+#define PSL_CCR         0x001f          /* condition codes X N Z V C */
+#define PSL_C           0x0001          /* carry: syscall error (D23) */
 #define PSL_LOWIPL      PSL_S           /* supervisor, all interrupts enabled */
 #define PSL_HIGHIPL     (PSL_S | PSL_IPL7)
+#define PSL_USERSR      (PSL_CCR | PSL_T)       /* bits user code may set (D22) */
 
 /*
  * Macros to decode processor status word.
