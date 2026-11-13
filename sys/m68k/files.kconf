@@ -66,3 +66,5 @@ m68k/mem.c                      standard
 m68k/stubs.c                    standard
 m68k/swap.c                     standard
 m68k/sysctl.c                   standard
+m68k/locore.S                   standard
+m68k/trap.c                     standard

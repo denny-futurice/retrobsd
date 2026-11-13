@@ -7,16 +7,22 @@
 
 /*
  * Exception vector table, at address 0 (kernel.ld).  Vectors 0 and 1 are
- * the reset SSP and PC; every other vector goes to badvec until the trap
- * code (M3) installs real handlers.
+ * the reset SSP and PC.  The FPU exceptions go to fpfault, every other
+ * vector to trapentry; both are in locore.S, and trap() sorts them out.
  */
         .section .vectors,"aw"
         .globl  vectors
 vectors:
         .long   u_end                   /* 0: reset initial SSP */
         .long   _start                  /* 1: reset initial PC */
-        .rept   254
-        .long   badvec                  /* 2-255 */
+        .rept   46
+        .long   trapentry               /* 2-47 */
+        .endr
+        .rept   7
+        .long   fpfault                 /* 48-54: FPU exceptions */
+        .endr
+        .rept   201
+        .long   trapentry               /* 55-255 */
         .endr
 
         .text
@@ -50,25 +56,3 @@ _start:
 3:      stop    #0x2700
         bra.s   3b
         .size   _start, . - _start
-
-/*
- * Unexpected exception.  The 68030 frame starts with SR (word), PC (long)
- * and the format/vector word.  Calls badtrap(vector number, pc, sr), which
- * reports it; halt if it returns.
- */
-        .globl  badvec
-        .type   badvec, @function
-badvec:
-        move.w  #0x2700, %sr
-        moveq   #0, %d0
-        move.w  (%sp), %d0              /* sr */
-        move.l  %d0, -(%sp)
-        move.l  6(%sp), -(%sp)          /* pc */
-        move.w  14(%sp), %d0            /* format/vector word */
-        andi.l  #0x0fff, %d0
-        lsr.l   #2, %d0                 /* vector number */
-        move.l  %d0, -(%sp)
-        jsr     badtrap
-1:      stop    #0x2700
-        bra.s   1b
-        .size   badvec, . - badvec

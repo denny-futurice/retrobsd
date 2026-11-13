@@ -277,16 +277,6 @@ boot(dev_t dev, int howto)
 }
 
 /*
- * Unexpected exception or interrupt, called from badvec in startup.S.
- */
-void
-badtrap(int vec, unsigned pc, int sr)
-{
-    printf("trap: unexpected vector %d, pc %08x, sr %04x\n", vec, pc, sr);
-    panic("unexpected trap");
-}
-
-/*
  * Setup system timer for `hz' timer interrupts per second.
  * The clock interrupt is wired up in M3; until then this is a no-op.
  */
