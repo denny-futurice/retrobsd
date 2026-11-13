@@ -57,9 +57,10 @@ and `sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills 
 The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machdep.c`, with
 `ktest.c` standing in for the rest of the kernel; they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
-The trap tests (`ktrap` to `fpbiu`) add the kernel's `sys/m68k/trap.c` and `ttest.c`, which
-stubs the scheduler and signal calls (`psignal()` calls the test's `got_signal()`), enters user
-mode with `rte`, and pushes hand-built exception frames for what QEMU does not raise (D25).
+The trap tests (`ktrap` to `todr`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
+`sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
+(`psignal()` calls the test's `got_signal()`), enters user mode with `rte`, and pushes
+hand-built exception frames for what QEMU does not raise (D25).
 Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
 The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
 `Makefile` (in place and incremental, like a developer build; the build log goes to
@@ -84,6 +85,9 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `buserr`   | hand-built format B bus error: `SIGBUS`, trimmed to format 0 (D26) | `buserr ok` |
 | `ufpe`     | hand-built FPU exception: `SIGFPE`, FPSR in `u_code` | `ufpe ok` |
 | `fpbiu`    | `fpfault_clear()` on hand-built 68881/2 state frames | `fpbiu ok` |
+| `tick`     | RTC 1 alarm ticks at `HZ` through the PIC and `hardclock()` (D27) | `tick ok` |
+| `callout`  | `timeout()` callback fires on the tick it was due | `callout ok` |
+| `todr`     | `inittodr()`: time from RTC 2, or the file system time if the RTC is behind | `todr ok` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
