@@ -406,3 +406,23 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   limits are listed in `docs/porting/README.md`. `fsave`/`frestore` being
   illegal on QEMU's 68030 must be handled by the context switch (M3 task
   3), which decides how.
+
+## D26: User bus and address errors are not restarted
+- **Context:** a bus or address error leaves a format A or B frame (32 or
+  92 bytes) whose `rte` reruns the faulting bus cycle. NetBSD keeps that
+  frame and, when it delivers a signal, copies the extra state into the
+  signal frame so that `sigreturn` can restore it and rerun the cycle. That
+  serves demand paging, where the fault is fixed and the cycle retried.
+  Without an MMU (D4) nothing can fix the fault: a rerun faults again.
+- **Decision:** `trap()` (`sys/m68k/trap.c`) posts `SIGBUS` with the fault
+  address in `u.u_code` and trims the frame to format 0 straight away:
+  `tf_stackadj` is set to the dropped size, and the exit path in
+  `sys/m68k/locore.S` moves SR and PC up over the dropped part (NetBSD's
+  `faultstkadj`). The process resumes at the frame's PC, if it resumes at
+  all. Kernel-mode bus and address errors panic.
+- **Consequences:** the signal frame (M3 task 7) never holds bus fault
+  state. A `SIGBUS` handler that returns resumes at the frame's PC, which
+  on the 68030 is not exactly the faulting instruction; handlers are
+  expected to exit or `longjmp`, and an ignored `SIGBUS` may fault again.
+  Demand paging with an MMU (D23 notes) would need the NetBSD scheme
+  instead.

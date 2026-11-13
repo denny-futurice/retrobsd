@@ -51,12 +51,16 @@ sh docs/porting/smoke/run.sh
 Each test is a single freestanding source file in `smoke/` that checks one thing and prints an
 expected string to the Goldfish TTY on `qemu-system-m68k -M virt -cpu m68030`, built with the flags
 the port will use.
-`startup` and `badvec` link with the kernel's `sys/m68k/startup.S` and
-`sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
+The tests from `startup` on link with the kernel's `sys/m68k/startup.S`, `sys/m68k/locore.S`
+and `sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
 `smoke_bss` array through QEMU's loader device so a missing BSS clear is caught.
 The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machdep.c`, with
 `ktest.c` standing in for the rest of the kernel; they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
+The trap tests (`ktrap` to `fpbiu`) add the kernel's `sys/m68k/trap.c` and `ttest.c`, which
+stubs the scheduler and signal calls (`psignal()` calls the test's `got_signal()`), enters user
+mode with `rte`, and pushes hand-built exception frames for what QEMU does not raise (D25).
+Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
 The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
 `Makefile` (in place and incremental, like a developer build; the build log goes to
 `$OUT/kernel-build.log`) and boots it. Without a root filesystem (D20) the kernel panics, and
@@ -67,12 +71,19 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `hello` | toolchain, linker script and QEMU boot            | `hello m68030`  |
 | `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
 | `startup` | kernel `startup.S`: BSS clear, stack, VBR       | `startup ok`    |
-| `badvec`  | unexpected exception reaches `badtrap()`        | `badvec ok`     |
 | `bootinfo` | `startup()` takes `physmem` from QEMU bootinfo | `bootinfo ok`   |
 | `kstring`  | `ffs`, string and memory routines              | `kstring ok`    |
 | `useraddr` | `baduaddr`/`badkaddr`, `copyin`/`copyout` range checks | `useraddr ok` |
 | `udelay`   | `udelay()` timing against the Goldfish RTC     | `udelay ok`     |
 | `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
+| `ktrap`    | kernel-mode exception dumps registers, panics  | `panic: kernel trap` |
+| `uill`     | user illegal instruction: `SIGILL`, trap frame | `uill ok`       |
+| `upriv`    | user privileged instruction: `SIGILL`          | `upriv ok`      |
+| `utrace`   | user trace: `SIGTRAP`, T bit cleared           | `utrace ok`     |
+| `udivz`    | user divide by zero: `SIGFPE`, format 2 frame  | `udivz ok`      |
+| `buserr`   | hand-built format B bus error: `SIGBUS`, trimmed to format 0 (D26) | `buserr ok` |
+| `ufpe`     | hand-built FPU exception: `SIGFPE`, FPSR in `u_code` | `ufpe ok` |
+| `fpbiu`    | `fpfault_clear()` on hand-built 68881/2 state frames | `fpbiu ok` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
@@ -134,5 +145,5 @@ gdb-multiarch -ex "target remote :1234" sys/m68k/virt/unix.elf
 (gdb) kill                      # also ends QEMU
 ```
 
-`break badtrap` catches unexpected exceptions; its arguments are the vector number, the PC and
-the SR of the faulting instruction.
+`break trap` catches every exception and interrupt; `p *tf` shows the trap frame
+(`sys/m68k/frame.h`), with the vector offset in `tf_vector` (vector number times 4).

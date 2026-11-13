@@ -135,6 +135,8 @@ life (no separate banner). There is no disk yet (D20).
       returns, startup halts. Covered by the `startup` (BSS clear, stack,
       VBR) and `badvec` (`trap #15` reaches `badtrap` with vector 47, PC
       and SR) smoke tests in `make check`.
+      M3 task 1 replaced `badvec`/`badtrap` and their test with the trap
+      entry in `sys/m68k/locore.S`.
 - [x] Minimal `machdep.c`: `startup`, `kconfig`, `boot`/halt (QEMU
       `virt-ctrl` power off), `spl*` via the status register IPL (D16),
       no-op `clkstart`
@@ -201,7 +203,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `d0`/`d1`, carry set and `errno` in `d0` on error) and the
       PIC32-only syscalls and `cpu_sysctl` (D24: `ustore`/`ufetch`/`ucall`
       removed, slots 152-154 reserved)
-- [ ] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
+- [x] 1. Exception and trap handling (`exception.c` equivalent: `trap.S`,
       `trap.c`): `sys/m68k/frame.h` with `struct trapframe` (D22), and
       `u.u_frame` in `user.h` becomes `struct trapframe *`, set on traps
       from user mode. Common entry and exit through the trap frame, kernel
@@ -210,6 +212,19 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       tests: illegal instruction gives a register dump; user-mode faults
       post the right signal; bus error and FPU exception handling run on
       hand-built frames, since QEMU raises neither (D25)
+      Done. `sys/m68k/frame.h` and the `PSL_*` bits in `machparam.h`;
+      the entry and exit code is `sys/m68k/locore.S` (named so its object
+      does not clash with `trap.o`): `trapentry` for every vector but the
+      FPU exceptions, `fpfault` (`fsave`, `fpfault_clear()`, `frestore`)
+      for vectors 48-54, and `trapret`, which applies `tf_stackadj`.
+      `sys/m68k/trap.c` sorts by vector: interrupts are reported as stray
+      until task 2, kernel faults dump the registers and panic, user
+      faults post the signal and run the PIC32 return path (signals,
+      `setpri`, `swtch`, `addupc`). User bus and address errors are
+      trimmed to format 0 (D26). `trap #0` gives `SIGILL` until task 5.
+      Smoke tests `ktrap`, `uill`, `upriv`, `utrace`, `udivz` on QEMU and
+      `buserr`, `ufpe`, `fpbiu` on hand-built frames; `run.sh` now
+      reports build failures instead of reusing stale objects
 - [ ] 2. Goldfish PIC and RTC alarm as the clock tick (IPL 6, alarm re-armed
       each tick, `hardclock`); `spl*` stay two-level (D16). Smoke test:
       ticks advance and a `timeout()` callback fires. Depends on 1
