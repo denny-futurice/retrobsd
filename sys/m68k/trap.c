@@ -22,6 +22,13 @@ CTASSERT(tf_sp_offset, offsetof(struct trapframe, tf_regs) + 15 * sizeof(int) ==
 CTASSERT(tf_stackadj_offset, offsetof(struct trapframe, tf_stackadj) == 66);
 CTASSERT(tf_sr_offset, offsetof(struct trapframe, tf_sr) == 68);
 CTASSERT(F_u_offset, offsetof(struct trapframe, F_u) == 68 + FMT0SIZE);
+CTASSERT(p_addr_offset, offsetof(struct proc, p_addr) == 56);
+CTASSERT(u_fpstate_offset, offsetof(struct user, u_fpstate) == 1002);
+CTASSERT(fps_regs_offset, offsetof(struct fpstate, fps_regs) == 216);
+CTASSERT(fps_fpcr_offset, offsetof(struct fpstate, fps_fpcr) == 312);
+CTASSERT(label_pc_offset, sizeof(label_t) == 13 * 4);
+CTASSERT(u_procp_offset, offsetof(struct user, u_procp) == 0);
+CTASSERT(user_fits, sizeof(struct user) < USIZE);
 
 /* Vector numbers. */
 #define T_BUSERR        2

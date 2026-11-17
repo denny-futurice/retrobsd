@@ -3,6 +3,7 @@ PARAM += -DM68030
 PARAM += -DGFTTY_ENABLED
 PARAM += -DCONS_MINOR=0
 PARAM += -DCONS_MAJOR=UART_MAJOR
+PARAM += -DFPU_NO_FSAVE
 LDSCRIPT = "virt/kernel.ld"
 #
 # Makefile for RetroBSD, m68k target (GCC, see docs/porting decision D14)

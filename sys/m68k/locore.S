@@ -85,3 +85,137 @@ fpfault:
         .globl  fpfault_state
 fpfault_state:
         .space  256
+
+/*
+ * Context switch, after PIC32's startup.S and NetBSD's m68k locore.
+ * Offsets are checked in trap.c.
+ */
+P_ADDR          = 56                    /* struct proc p_addr */
+U_FPSTATE       = 1002                  /* struct user u_fpstate */
+FPS_REGS        = 216                   /* struct fpstate fps_regs */
+FPS_FPCR        = 312                   /* fps_fpcr, fps_fpsr, fps_fpiar */
+LABEL_PC        = 48                    /* label_t val[12] */
+USIZE           = 4096
+
+        .text
+
+/*
+ * Save the user FPU state in u.u_fpstate from a0, and restore it.  Boards
+ * whose CPU model lacks fsave/frestore (QEMU's 68030) set FPU_NO_FSAVE and
+ * keep only the registers (D28).  Otherwise a null fsave frame means the
+ * FPU was never used, and frestore of it resets the FPU.
+ *
+ * The control registers are moved one at a time: QEMU's fmovem.l stores
+ * and loads them in reverse order (FPIAR at the lowest address), while the
+ * 68881/2 puts FPCR first (docs/qemu, target/m68k/translate.c,
+ * gen_op_fmove_fcr).
+ */
+        .macro  FPCTLSAVE
+        fmove.l %fpcr, FPS_FPCR(%a0)
+        fmove.l %fpsr, FPS_FPCR+4(%a0)
+        fmove.l %fpiar, FPS_FPCR+8(%a0)
+        .endm
+
+        .macro  FPCTLRESTORE
+        fmove.l FPS_FPCR(%a0), %fpcr
+        fmove.l FPS_FPCR+4(%a0), %fpsr
+        fmove.l FPS_FPCR+8(%a0), %fpiar
+        .endm
+
+        .macro  FPSAVE
+#ifdef FPU_NO_FSAVE
+        fmovem.x %fp0-%fp7, FPS_REGS(%a0)
+        FPCTLSAVE
+#else
+        fsave   (%a0)
+        tst.b   (%a0)
+        beq.s   1f
+        fmovem.x %fp0-%fp7, FPS_REGS(%a0)
+        FPCTLSAVE
+1:
+#endif
+        .endm
+
+        .macro  FPRESTORE
+#ifdef FPU_NO_FSAVE
+        FPCTLRESTORE
+        fmovem.x FPS_REGS(%a0), %fp0-%fp7
+#else
+        tst.b   (%a0)
+        beq.s   1f
+        FPCTLRESTORE
+        fmovem.x FPS_REGS(%a0), %fp0-%fp7
+1:      frestore (%a0)
+#endif
+        .endm
+
+/*
+ * void savefpu(void);
+ *
+ * Copy the live FPU state to u.u_fpstate and leave the FPU as it was.
+ * fork() calls it before swapout() copies u for the child.
+ */
+        .globl  savefpu
+        .type   savefpu, @function
+savefpu:
+        lea     u+U_FPSTATE, %a0
+        FPSAVE
+        FPRESTORE
+        rts
+        .size   savefpu, . - savefpu
+
+/*
+ * int setjmp(label_t *env);
+ *
+ * Save d2-d7, a2-a6, the sp and the return pc in env; return 0.
+ */
+        .globl  setjmp
+        .type   setjmp, @function
+setjmp:
+        move.l  4(%sp), %a0
+        movem.l %d2-%d7/%a2-%a7, (%a0)
+        move.l  (%sp), LABEL_PC(%a0)
+        moveq   #0, %d0
+        rts
+        .size   setjmp, . - setjmp
+
+/*
+ * void longjmp(size_t unew, label_t *env);
+ *
+ * Return 1 from the setjmp() that saved env.  If unew is not &u, the
+ * process in u0 is switched in first: the FPU state is saved in u, the
+ * contents of u and u0 are exchanged and the FPU state of the new process
+ * is loaded from u.  The kernel stack lives in u, so the exchange runs at
+ * IPL 7 without the stack, and env is read only after it, from the new u.
+ * Returns at IPL 0, as PIC32 does.
+ */
+        .globl  longjmp
+        .type   longjmp, @function
+longjmp:
+        move.w  #0x2700, %sr
+        move.l  8(%sp), %a1             /* env */
+        cmp.l   #u, 4(%sp)
+        beq.s   2f
+
+        lea     u+U_FPSTATE, %a0
+        FPSAVE
+        move.l  u, %a0                  /* u.u_procp->p_addr = &u0 */
+        move.l  #u0, P_ADDR(%a0)
+        lea     u, %a2
+        lea     u0, %a3
+        move.w  #USIZE/4-1, %d2
+1:      move.l  (%a2), %d0
+        move.l  (%a3), (%a2)+
+        move.l  %d0, (%a3)+
+        dbra    %d2, 1b
+        move.l  u, %a0                  /* u.u_procp->p_addr = &u */
+        move.l  #u, P_ADDR(%a0)
+        lea     u+U_FPSTATE, %a0
+        FPRESTORE
+
+2:      movem.l (%a1)+, %d2-%d7/%a2-%a7
+        move.l  (%a1), (%sp)            /* pc */
+        moveq   #1, %d0
+        move.w  #0x2000, %sr
+        rts
+        .size   longjmp, . - longjmp

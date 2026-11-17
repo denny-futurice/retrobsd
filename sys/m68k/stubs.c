@@ -22,22 +22,6 @@
 #define NOTYET(name)    panic(#name " not implemented")
 
 /*
- * Context switch: startup.S on PIC32.
- */
-int
-setjmp(label_t *env)
-{
-    NOTYET(setjmp);
-    return 0;
-}
-
-void
-longjmp(size_t unew, label_t *env)
-{
-    NOTYET(longjmp);
-}
-
-/*
  * User code for process 1, which execs /sbin/init: startup.S on PIC32.
  * Empty here; process 1 is not started without a root filesystem.
  */

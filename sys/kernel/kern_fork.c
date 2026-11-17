@@ -156,7 +156,9 @@ again:
 
     /*
      * Swap out the current process to generate the copy.
+     * The live FPU state goes into u first, for the child.
      */
+    savefpu();
     parent->p_stat = SIDL;
     child->p_addr = parent->p_addr;
     child->p_stat = SRUN;

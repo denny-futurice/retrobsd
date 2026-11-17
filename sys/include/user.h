@@ -97,6 +97,15 @@ struct user {
         ino_t nc_inumber;           /* inum of cached directory */
         dev_t nc_dev;               /* dev of cached directory */
     } u_ncache;
+#ifdef __mc68000__
+    struct fpstate {                /* user FPU state (D12, D28) */
+        u_char  fps_frame[216];     /* fsave frame, 68882 busy is largest */
+        u_int   fps_regs[8 * 3];    /* fp0-fp7, 96-bit extended */
+        u_int   fps_fpcr;           /* control registers */
+        u_int   fps_fpsr;
+        u_int   fps_fpiar;
+    } u_fpstate;
+#endif
     int     u_stack[1];             /* kernel stack per user
                                      * extends from u + USIZE
                                      * backward not to reach here */

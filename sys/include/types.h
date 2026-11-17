@@ -38,7 +38,7 @@ typedef struct  label_t {
 #endif
 #ifdef __mc68000__
 typedef struct  label_t {
-    unsigned val[12];               /* regs D2-D7, A2-A6 and SP */
+    unsigned val[13];               /* regs D2-D7, A2-A6, SP and PC */
 } label_t;
 #endif
 typedef long    daddr_t;
