@@ -235,11 +235,17 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       Done: `sys/m68k/clock.c` (`clkstart`, `clockintr`, `inittodr`), PIC
       dispatch in `intr()` (`trap.c`; unhandled sources are disabled),
       `startup()` masks all PIC sources; smoke tests `tick`, `callout`, `todr`
-- [ ] 3. Context switch: `setjmp`/`longjmp` with the `u`/`u0` swap, including
+- [x] 3. Context switch: `setjmp`/`longjmp` with the `u`/`u0` swap, including
       the user FPU state (`fsave`/`fmovem`, `fmovem`/`frestore`) kept in the
       `u` area (D12). First check that QEMU's 68030 supports `fsave`/
       `frestore`. Smoke test: two contexts switch, the `u` area and FP
       registers survive. Depends on 1
+      Done: it does not (D28). `setjmp`/`longjmp`/`savefpu` in
+      `sys/m68k/locore.S`; `label_t` gains the PC, `struct user` the
+      `u_fpstate` save area; `fork()` calls `savefpu()` before `swapout()`;
+      the `virt` board sets `FPU_NO_FSAVE`; smoke tests `swtch`, `fpswtch`.
+      FPU reset on `exec` is left to task 6, FPU state in the signal
+      frame to task 7
 - [ ] 4. `copyin`/`copyout` exist (M2 `machdep.c`) but only range-check;
       review them against the user region before the syscall path relies
       on the same check for its arguments

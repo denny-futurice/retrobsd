@@ -449,6 +449,36 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   the hardware time cannot disturb the tick. `HZ` stays 200 (an exact
   number of nanoseconds per tick).
 
+## D28: User FPU state saved with or without `fsave`, chosen per board
+- **Context:** the user FPU state must follow each process across the
+  `u`/`u0` exchange in `longjmp` (D12). On a 68881/2 the full state is the
+  `fsave` frame (up to 216 bytes for a busy 68882) plus `fp0`-`fp7` and the
+  control registers; `fsave` also waits for a running FPU operation and
+  keeps a pending FPU exception with the process. QEMU implements `fsave`/
+  `frestore` only for its 68040 model; on `-cpu m68030` both are illegal
+  instructions (`docs/qemu`, `target/m68k/translate.c`). QEMU's
+  `fmovem.l` of several control registers also stores and loads them in
+  reverse order (FPIAR at the lowest address, where the 68881/2 puts FPCR).
+- **Decision:** `struct user` gets a `u_fpstate` area (frame, registers,
+  FPCR/FPSR/FPIAR, 324 bytes) under `__mc68000__`. `longjmp` saves the FPU
+  into `u` before the exchange and restores it from the new `u` after, only
+  when the process changes; `fork()` calls the machine-dependent
+  `savefpu()` before `swapout()` copies the live `u` for the child. By
+  default the save is NetBSD's: `fsave`, and `fmovem` of the registers
+  unless the frame is null; the restore mirrors it and ends in `frestore`.
+  A board whose CPU model lacks `fsave` sets the kconfig option
+  `FPU_NO_FSAVE` and saves only the registers; `virt` does. The control
+  registers are always moved one at a time, so the layout is the same on
+  QEMU and hardware. Option B (probe `fsave` at boot) and C (registers
+  only everywhere) were rejected: B adds a check per switch, and C on a
+  real 68881/2 would let a pending exception surface in the wrong context.
+- **Consequences:** the `fsave` path is assembled but untested until a
+  hardware board runs (WinUAE, M6; as D25). The kernel stack in `u` shrinks
+  by 324 bytes (`sizeof(struct user)` 1330 of `USIZE` 4096). `label_t`
+  gains the PC (13 words). The kernel must not use FPU registers itself
+  outside these paths (checked in the disassembly: only `fpfault` and
+  `fpfault_clear`).
+
 ## D29: QEMU source as a documentation submodule
 - **Context:** several decisions (D25, D27, D28) depend on what QEMU's
   `virt` machine and 68030 model actually do, and checking that against

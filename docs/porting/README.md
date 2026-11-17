@@ -15,7 +15,7 @@ and tools.
 |----------------------------------------|-------------------------------------------|
 | [01-assessment.md](01-assessment.md)   | Feasibility assessment and risks          |
 | [02-backlog.md](02-backlog.md)         | Milestone task backlog (M0-M6)            |
-| [03-decisions.md](03-decisions.md)     | Decision record (D1-D20)                  |
+| [03-decisions.md](03-decisions.md)     | Decision record (D1-D29)                  |
 | [smoke/](smoke/)                       | Freestanding toolchain/QEMU smoke test    |
 
 ## Host setup (Debian Testing)
@@ -54,8 +54,9 @@ the port will use.
 The tests from `startup` on link with the kernel's `sys/m68k/startup.S`, `sys/m68k/locore.S`
 and `sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
 `smoke_bss` array through QEMU's loader device so a missing BSS clear is caught.
-The machdep tests (`bootinfo` to `halt`) also link the kernel's `sys/m68k/machdep.c`, with
-`ktest.c` standing in for the rest of the kernel; they stop QEMU through `boot(RB_HALT)`, and
+The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/machdep.c`, with
+`ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
+`FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
 The trap tests (`ktrap` to `todr`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
 `sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
@@ -77,6 +78,8 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `useraddr` | `baduaddr`/`badkaddr`, `copyin`/`copyout` range checks | `useraddr ok` |
 | `udelay`   | `udelay()` timing against the Goldfish RTC     | `udelay ok`     |
 | `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
+| `swtch`    | `setjmp`/`longjmp` switch to the process in `u0` and back: `u`/`u0` and `p_addr` exchanged | `swtch ok` |
+| `fpswtch`  | FPU registers and FPCR follow each process across the switch; `savefpu()` (D28) | `fpswtch ok` |
 | `ktrap`    | kernel-mode exception dumps registers, panics  | `panic: kernel trap` |
 | `uill`     | user illegal instruction: `SIGILL`, trap frame | `uill ok`       |
 | `upriv`    | user privileged instruction: `SIGILL`          | `upriv ok`      |
