@@ -30,6 +30,8 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **Editor/clangd:** `sys/`, `src/` and `include/compile_flags.txt` plus the top `.clangd` make
   clangd parse for m68k against the tree's headers only (see docs/porting/README.md). Keep them in
   step with the build flags.
+- **QEMU source:** `docs/qemu` is a shallow submodule at the QEMU version `make check` runs
+  (`v11.1.2`, D29), for checking emulator behaviour; read it instead of fetching QEMU sources.
 - Do not push to a remote unless asked.
 
 ### Working rules

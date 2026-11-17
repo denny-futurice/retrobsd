@@ -1,0 +1,4 @@
+[submodule "docs/qemu"]
+	path = docs/qemu
+	url = https://gitlab.com/qemu-project/qemu.git
+	shallow = true

@@ -448,3 +448,14 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** only PIC 6 source 1 is enabled for the clock. Setting
   the hardware time cannot disturb the tick. `HZ` stays 200 (an exact
   number of nanoseconds per tick).
+
+## D29: QEMU source as a documentation submodule
+- **Context:** several decisions (D25, D27, D28) depend on what QEMU's
+  `virt` machine and 68030 model actually do, and checking that against
+  fetched web copies is slow and unpinned.
+- **Decision:** `docs/qemu` is a shallow git submodule of
+  `https://gitlab.com/qemu-project/qemu.git` at tag `v11.1.2`, the QEMU
+  version the smoke tests run on. It is reference material only; nothing
+  builds from it. `git submodule update --init` fetches it.
+- **Consequences:** when the QEMU used for `make check` changes version,
+  the submodule moves to the matching tag in the same commit.
