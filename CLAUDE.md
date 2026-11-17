@@ -46,7 +46,7 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **Keep the backlog honest:** tick a task in `docs/porting/02-backlog.md` only when the work exists
   (files created, test passing), not when it is merely decided.
 - **Update docs with the change:** if a flag, toolchain assumption or workflow changes, update
-  `docs/porting/` and this file in the same commit.
+  `docs/porting/` and this file in the same series of commits (see **Commits** for the split).
 - **Verify before claiming:** run `make check` after touching the toolchain, flags or smoke tests,
   and check tool names and flags against the installed tools rather than from memory.
 - **Tests do one thing each:** prefer several small single-purpose tests (see
@@ -54,7 +54,12 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **Byte order:** the target is big-endian, the original code was written for little-endian MIPS.
   Watch for byte-order assumptions in `tools/fsutil`, `tools/elf2aout` and on-disk formats.
 - **Commits:** small and focused, with the trailer
-  `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`.
+  `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`. Split each piece of
+  work so that any part can be reverted on its own:
+  - implementation (`sys/`, `src/`, `tools/`, build files) in one commit;
+  - documentation and tests (`docs/porting/`, smoke tests, this file) in a separate commit;
+  - code removals (PIC32 code, dead features, stubs replaced wholesale) in their own commit,
+    never mixed with new code.
 - `target.mk` and the kernel template `sys/m68k/Makefile.kconf` (moved from `sys/pic32/`) are
   converted to m68k GCC (D14), so the PIC32 build no longer works. `tools/kconfig` accepts
   `architecture "m68k"` and reads `sys/m68k/{files,devices,Makefile}.kconf`. The linker scripts
