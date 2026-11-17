@@ -39,9 +39,8 @@ mmrw (dev_t dev, struct uio *uio, int flag)
         case 0:     /* minor device 0 is physical memory (/dev/mem) */
         case 1:     /* minor device 1 is kernel memory (/dev/kmem) */
             addr = (caddr_t) uio->uio_offset;
-            if ((badkaddr (addr) && baduaddr (addr)) ||
-                (badkaddr (addr + iov->iov_len - 1) &&
-                baduaddr (addr + iov->iov_len - 1))) {
+            if (badkrange (addr, iov->iov_len) &&
+                baduarange (addr, iov->iov_len)) {
                 error = EFAULT;
                 break;
             }

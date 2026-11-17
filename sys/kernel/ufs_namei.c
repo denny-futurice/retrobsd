@@ -210,9 +210,16 @@ namei (struct nameidata *ndp)
     if (flag == DELETE || lockparent)
         docache = 0;
     /*
-     * Copy the name into the buffer.
+     * Copy the name into the buffer.  Names come from user space, except
+     * the interpreter name (exec_script.c) and the core file name
+     * (kern_sig.c), which are kernel buffers.
      */
-    error = copystr (ndp->ni_dirp, path, MAXPATHLEN, (u_int*) 0);
+    if (! baduaddr (ndp->ni_dirp))
+        error = copyinstr (ndp->ni_dirp, path, MAXPATHLEN, (u_int*) 0);
+    else if (! badkaddr (ndp->ni_dirp))
+        error = copystr (ndp->ni_dirp, path, MAXPATHLEN, (u_int*) 0);
+    else
+        error = EFAULT;
     if (error) {
         u.u_error = error;
         goto retNULL;

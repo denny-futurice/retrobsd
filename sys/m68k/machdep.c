@@ -373,6 +373,28 @@ done:
 }
 
 /*
+ * copystr() from user memory: EFAULT if the string starts outside the user
+ * region or runs off its end before the null byte.
+ */
+int
+copyinstr(caddr_t src, caddr_t dest, u_int maxlength, u_int *lencopied)
+{
+    u_int room;
+    int error;
+
+    if (baduaddr(src)) {
+        if (lencopied != 0)
+            *lencopied = 0;
+        return EFAULT;
+    }
+    room = (caddr_t) USER_DATA_END - src;
+    if (maxlength <= room)
+        return copystr(src, dest, maxlength, lencopied);
+    error = copystr(src, dest, room, lencopied);
+    return error == ENOENT ? EFAULT : error;
+}
+
+/*
  * Calculate the length of a string.
  */
 size_t
@@ -399,6 +421,21 @@ baduaddr(caddr_t addr)
 }
 
 /*
+ * Return 0 if the len bytes from addr are all in user memory.  The length
+ * is compared with the room left in the region, so a huge len cannot wrap
+ * around to a valid end address.  Zero bytes are always valid.
+ */
+int
+baduarange(caddr_t addr, u_int len)
+{
+    if (len == 0)
+        return 0;
+    if (baduaddr(addr))
+        return 1;
+    return len > (u_int) ((caddr_t) USER_DATA_END - addr);
+}
+
+/*
  * Return 0 if a kernel address is valid.
  * There is only one memory region allowed for kernel: RAM below the
  * user region.
@@ -410,6 +447,20 @@ badkaddr(caddr_t addr)
         addr < (caddr_t) KERNEL_DATA_END)
         return 0;
     return 1;
+}
+
+/*
+ * Return 0 if the len bytes from addr are all in kernel memory; as
+ * baduarange().
+ */
+int
+badkrange(caddr_t addr, u_int len)
+{
+    if (len == 0)
+        return 0;
+    if (badkaddr(addr))
+        return 1;
+    return len > (u_int) ((caddr_t) KERNEL_DATA_END - addr);
 }
 
 /*
@@ -602,7 +653,7 @@ bcmp(const void *m1, const void *m2, size_t nbytes)
 int
 copyout(caddr_t from, caddr_t to, u_int nbytes)
 {
-    if (baduaddr(to) || baduaddr(to + nbytes - 1))
+    if (baduarange(to, nbytes))
         return EFAULT;
     bcopy(from, to, nbytes);
     return 0;
@@ -610,7 +661,7 @@ copyout(caddr_t from, caddr_t to, u_int nbytes)
 
 int copyin (caddr_t from, caddr_t to, u_int nbytes)
 {
-    if (baduaddr(from) || baduaddr(from + nbytes - 1))
+    if (baduarange(from, nbytes))
         return EFAULT;
     bcopy(from, to, nbytes);
     return 0;

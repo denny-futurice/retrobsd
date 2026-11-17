@@ -35,8 +35,13 @@ rwuio (struct uio *uio)
     }
     total = 0;
     uio->uio_resid = 0;
-    for (iov = uio->uio_iov, i = 0; i < uio->uio_iovcnt; i++, iov++)
+    for (iov = uio->uio_iov, i = 0; i < uio->uio_iovcnt; i++, iov++) {
+        if (baduarange (iov->iov_base, iov->iov_len)) {
+            u.u_error = EFAULT;
+            return;
+        }
         total += iov->iov_len;
+    }
 
     uio->uio_resid = total;
     if (uio->uio_resid != total) {      /* check wraparound */
@@ -181,8 +186,7 @@ ioctl()
     if (com & (IOC_IN | IOC_OUT)) {
         /* Check user address. */
         u_int nbytes = (com & ~(IOC_INOUT | IOC_VOID)) >> 16;
-        if (baduaddr (uap->cmarg) ||
-            baduaddr (uap->cmarg + nbytes - 1)) {
+        if (baduarange (uap->cmarg, nbytes)) {
             u.u_error = EFAULT;
             return;
         }

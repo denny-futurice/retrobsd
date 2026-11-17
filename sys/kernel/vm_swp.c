@@ -107,8 +107,7 @@ physio(void (*strat) (struct buf*), struct buf *bp, dev_t dev, int rw, struct ui
          * the end is in the data or the start is in the stack
          * (remember wraparound was already checked).
          */
-        if (baduaddr (iov->iov_base) ||
-            baduaddr (iov->iov_base + iov->iov_len - 1)) {
+        if (baduarange (iov->iov_base, iov->iov_len)) {
             error = EFAULT;
             break;
         }

@@ -113,6 +113,8 @@ void cnputc (char c);
 int cngetc (void);
 int baduaddr (caddr_t addr);        /* detect bad user address */
 int badkaddr (caddr_t addr);        /* detect bad kernel address */
+int baduarange (caddr_t addr, u_int len);   /* detect bad user range */
+int badkrange (caddr_t addr, u_int len);    /* detect bad kernel range */
 
 int strncmp (const char *s1, const char *s2, size_t n);
 void bzero (void *s, size_t nbytes);
@@ -143,6 +145,12 @@ int copyout (const caddr_t from, caddr_t to, u_int nbytes);
  * EFAULT on failure.
  */
 int copyin (const caddr_t from, caddr_t to, u_int nbytes);
+
+/*
+ * Copy a null terminated string from user space, as copystr().
+ * Returns EFAULT if it is not entirely in user space.
+ */
+int copyinstr (caddr_t from, caddr_t to, u_int maxlength, u_int *lencopied);
 
 /*
  * Check if gid is a member of the group set.
