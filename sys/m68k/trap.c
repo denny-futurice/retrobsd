@@ -142,9 +142,10 @@ dumpregs(struct trapframe *tf)
 /*
  * A user bus or address error is not restarted (D26).  Drop the format
  * A or B state so that rte resumes at tf_pc from a format 0 frame;
- * trapret in locore.S moves SR and PC up by tf_stackadj bytes.
+ * trapret in locore.S moves SR and PC up by tf_stackadj bytes.  sendsig
+ * also trims any other format before entering a handler (D31).
  */
-static void
+void
 trimframe(struct trapframe *tf)
 {
     tf->tf_stackadj = framesize[tf->tf_format] - FMT0SIZE;

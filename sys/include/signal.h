@@ -110,6 +110,27 @@ struct  sigstack {
  * to the handler to allow it to properly restore state if
  * a non-standard exit is performed.
  */
+#ifdef __mc68000__
+#include <machine/fpu.h>
+
+/*
+ * m68k (D31): every user register, so the trampoline only calls
+ * sigreturn.  sc_flags says which optional parts follow sc_fpstate; none
+ * are defined yet and sigreturn rejects unknown flags.  sc_fpstate stays
+ * the last member so such a tail never moves a public field.
+ */
+struct  sigcontext {
+    int     sc_onstack;         /* sigstack state to restore */
+    long    sc_mask;            /* signal mask to restore */
+    int     sc_flags;           /* optional parts after sc_fpstate */
+    int     sc_regs[16];        /* d0-d7, a0-a7; a7 is the user sp */
+    int     sc_pc;              /* pc to restore */
+    int     sc_ps;              /* sr to restore, user bits only */
+    struct  fpstate sc_fpstate; /* FPU state to restore (D12) */
+};
+
+#define sc_sp   sc_regs[15]
+#else
 struct  sigcontext {
     int     sc_onstack;         /* sigstack state to restore */
     long    sc_mask;            /* signal mask to restore */
@@ -146,6 +167,7 @@ struct  sigcontext {
     int     sc_hi;
     int     sc_pc;              /* pc to restore */
 };
+#endif
 
 /*
  * Macro for converting signal number to a mask suitable for

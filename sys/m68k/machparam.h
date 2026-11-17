@@ -181,6 +181,11 @@ void clockintr(struct trapframe *tf);
 void savefpu(void);
 void restorefpu(void);
 
+/*
+ * Turn a user trap frame into format 0 for the exit path (trap.c).
+ */
+void trimframe(struct trapframe *tf);
+
 #endif /* KERNEL */
 
 #endif /* ENDIAN */
