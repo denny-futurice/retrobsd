@@ -267,12 +267,20 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `u_frame` (task 6). `nosys()` in `trap.c`, `sc_msec()` in
       `clock.c` from a tick count (5 ms resolution); both stubs removed.
       Smoke tests `sysargs`, `sysret`, `sysrestart`, `nosys`, `msec`
-- [ ] 6. m68k trap frame users (D22): `exec_subr.c` (`exec_setupstack`,
+- [x] 6. m68k trap frame users (D22): `exec_subr.c` (`exec_setupstack`,
       `exec_clear`; the m68k ABI passes `argc`/`argv`/`envp` on the
       stack), `sys_process.c` and the pipe return value in `sys_pipe.c` use
       the `struct trapframe` fields. Re-enable the three files in
       `sys/m68k/files.kconf` and drop their stubs from `stubs.c`. Depends
       on 1 and 5
+      Done: exec enters user mode with `sp` at `argc` and the `argv`/`envp`
+      vectors above it (D30); this also fixes PIC32's `argv` reservation,
+      which was four times too large. `exec_clear` zeroes the registers
+      and SR and resets the FPU through a zeroed `u_fpstate` and the new
+      `restorefpu`. `pipe()` returns the write descriptor in `d1`.
+      `procxmt` reads `u` at any even offset (the PC is 2-byte aligned),
+      writes only `d0`-`a7`, PC and the user SR bits, and `PT_STEP` sets
+      `PSL_T`. Smoke tests `execstack`, `execclear`, `pipe2`, `ptrace`
 - [ ] 7. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
       holds the FPU state (D12). Smoke test: signal frame round trip in user
       mode. Depends on 3 and 5

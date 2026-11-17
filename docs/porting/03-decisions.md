@@ -489,3 +489,27 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   builds from it. `git submodule update --init` fetches it.
 - **Consequences:** when the QEMU used for `make check` changes version,
   the submodule moves to the matching tag in the same commit.
+
+## D30: Exec entry stack: `sp` at `argc`, `argv` and `envp` vectors above it
+- **Context:** PIC32 `exec_setupstack` passes `argc`, `argv` and `envp` in
+  `$a0`-`$a2` and leaves four empty argument slots below `argv`. The m68k
+  has no argument registers in its calling convention, so `crt0` (M5) and
+  the kernel must agree on where a new program finds them. Option A was a
+  ready-made C call frame (`sp` at an empty return address, then `argc`
+  and pointers to the two vectors), so `crt0` could stay in C; option B
+  the traditional Unix layout.
+- **Decision:** option B, the layout of V7, 2.11BSD on the PDP-11, 4.3BSD
+  on the VAX, and NetBSD and Linux on m68k. On entry `sp` points at
+  `argc`; `argv[0]` .. `argv[argc-1]`, a null pointer, `envp[0]` ..
+  `envp[envc-1]` and a null pointer follow at increasing addresses, then
+  the argument and environment strings. The top word of the stack points
+  at `argv[0]` for `ps`, as on PIC32. All other registers are zero and SR
+  is 0 (user mode, IPL 0). `exec` also resets the FPU (D28: `u_fpstate`
+  zeroed and loaded; with `fsave` that is a null frame `frestore`).
+- **Consequences:** `crt0` needs a few instructions of assembly to compute
+  `argv` (`sp + 4`) and `envp` (`argv + 4 * (argc + 1)`) before calling C.
+  The PIC32 code reserved four times too many words for `argv` (pointer
+  arithmetic on `char **`), leaving a gap before `envp`; the m68k code
+  packs the vectors, which `stack.len` in `exec_aout.c`/`exec_elf.c`
+  (`argc + envc + 4` words) covers exactly. Changing the layout later means
+  changing the kernel and `crt0` together.
