@@ -14,6 +14,7 @@
 #define RTC(base, reg)  VIRT_REG((base) + (reg))
 
 static unsigned long long nexttick;     /* RTC 1 time of the next tick */
+static volatile u_int ticks;            /* since clkstart(), for sc_msec() */
 
 static void
 rtc_reset(u_int base)
@@ -63,7 +64,18 @@ clockintr(struct trapframe *tf)
     RTC(VIRT_RTC_TICK, GF_RTC_CLEAR_INTERRUPT) = 0;
     nexttick += TICK_NS;
     setalarm(nexttick);
+    ticks++;
     hardclock((caddr_t) tf->tf_pc, tf->tf_sr);
+}
+
+/*
+ * msec system call: milliseconds since the clock started, at tick
+ * resolution.  Wraps after 2^32 ms, about 49.7 days.
+ */
+void
+sc_msec()
+{
+    u.u_rval = ticks * (1000 / HZ);
 }
 
 /*

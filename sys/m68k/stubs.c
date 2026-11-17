@@ -50,21 +50,6 @@ sigreturn()
 }
 
 /*
- * System calls: exception.c and sysctl.c on PIC32.
- */
-void
-nosys()
-{
-    NOTYET(nosys);
-}
-
-void
-sc_msec()
-{
-    NOTYET(sc_msec);
-}
-
-/*
  * kernel/exec_subr.c: sets up the user registers in the trap frame.
  */
 void

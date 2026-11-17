@@ -195,6 +195,65 @@ growstack(struct trapframe *tf)
 }
 
 /*
+ * System call, trap #0 (D23).  d0 holds the number; the arguments are
+ * the longs above the return address of the libc stub, at usp + 4.
+ * Success returns u_rval in d0 with the carry clear, an error returns
+ * the errno in d0 with the carry set.  ERESTART backs the PC up over the
+ * two-byte trap #0, d0 still holding the number; EJUSTRETURN leaves the
+ * frame alone (sigreturn).  d1 is set only by pipe(), through u_frame.
+ *
+ * The trap runs at the IPL of the user code, 0, so interrupts are
+ * already enabled.
+ */
+static void
+syscall(struct trapframe *tf)
+{
+    const struct sysent *callp;
+    u_int code = tf->tf_regs[0];
+
+#ifdef UCB_METER
+    cnt.v_syscall++;
+#endif
+    callp = &sysent[code < (u_int) nsysent ? code : 0];
+    u.u_error = 0;
+    if (callp->sy_narg)
+        u.u_error = copyin((caddr_t) tf->tf_sp + sizeof(int),
+            (caddr_t) u.u_arg, callp->sy_narg * sizeof(int));
+    if (u.u_error == 0) {
+        u.u_rval = 0;
+        if (setjmp(&u.u_qsave) == 0)
+            (*callp->sy_call)();
+    }
+    switch (u.u_error) {
+    case 0:
+        tf->tf_regs[0] = u.u_rval;
+        tf->tf_sr &= ~PSL_C;
+        break;
+    case ERESTART:
+        tf->tf_pc -= 2;
+        break;
+    case EJUSTRETURN:
+        break;
+    default:
+        tf->tf_regs[0] = u.u_error;
+        tf->tf_sr |= PSL_C;
+        break;
+    }
+}
+
+/*
+ * Nonexistent system call: signal the process, which may handle it.
+ * Flag an error if the process will not see the signal now.
+ */
+void
+nosys()
+{
+    if (u.u_signal[SIGSYS] == SIG_IGN || u.u_signal[SIGSYS] == SIG_HOLD)
+        u.u_error = EINVAL;
+    psignal(u.u_procp, SIGSYS);
+}
+
+/*
  * Interrupt.  Levels 1 to 6 come from the Goldfish PICs (autovectors 25
  * to 30): run the handler of every pending source.  A source without a
  * handler is disabled, so that it cannot interrupt again.
@@ -306,9 +365,17 @@ trap(struct trapframe *tf)
         tf->tf_sr &= ~PSL_T;
         psig = SIGTRAP;
         break;
+    case T_TRAP0:
+        u.u_code = tf->tf_pc;           /* for the signal handler */
+        if (! growstack(tf)) {
+            psig = SIGSEGV;
+            break;
+        }
+        syscall(tf);
+        goto out;
     default:
-        if (vec >= T_TRAP0 && vec <= T_TRAP15) {
-            psig = SIGILL;              /* trap #0 is M3 task 5 */
+        if (vec > T_TRAP0 && vec <= T_TRAP15) {
+            psig = SIGILL;
             break;
         }
         if (vec >= T_FPFIRST && vec <= T_FPLAST) {
