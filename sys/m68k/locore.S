@@ -165,6 +165,21 @@ savefpu:
         .size   savefpu, . - savefpu
 
 /*
+ * void restorefpu(void);
+ *
+ * Load u.u_fpstate into the FPU.  exec() zeroes u_fpstate first: that is
+ * a null frame, so frestore resets the FPU, or with FPU_NO_FSAVE zero
+ * registers (D30).
+ */
+        .globl  restorefpu
+        .type   restorefpu, @function
+restorefpu:
+        lea     u+U_FPSTATE, %a0
+        FPRESTORE
+        rts
+        .size   restorefpu, . - restorefpu
+
+/*
  * int setjmp(label_t *env);
  *
  * Save d2-d7, a2-a6, the sp and the return pc in env; return 0.

@@ -4,10 +4,6 @@
  * none is reached on the way to the M2 finish line, the "No root
  * filesystem found!" panic.  M3 removes each entry as the real code
  * arrives, and then this file.
- *
- * The trap-frame files kernel/exec_subr.c, sys_pipe.c and sys_process.c
- * are left out of files.kconf until the m68k trap frame exists (M3); the
- * symbols they define are stubbed here.
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -47,105 +43,4 @@ void
 sigreturn()
 {
     NOTYET(sigreturn);
-}
-
-/*
- * kernel/exec_subr.c: sets up the user registers in the trap frame.
- */
-void
-exec_setupstack(unsigned entryaddr, struct exec_params *epp)
-{
-    NOTYET(exec_setupstack);
-}
-
-void
-exec_alloc_freeall(struct exec_params *epp)
-{
-    NOTYET(exec_alloc_freeall);
-}
-
-void *
-exec_alloc(int size, int ru, struct exec_params *epp)
-{
-    NOTYET(exec_alloc);
-    return 0;
-}
-
-int
-exec_estab(struct exec_params *epp)
-{
-    NOTYET(exec_estab);
-    return 0;
-}
-
-void
-exec_save_args(struct exec_params *epp)
-{
-    NOTYET(exec_save_args);
-}
-
-void
-exec_clear(struct exec_params *epp)
-{
-    NOTYET(exec_clear);
-}
-
-/*
- * kernel/sys_pipe.c: pipe() returns its second descriptor in a register.
- */
-void
-pipe()
-{
-    NOTYET(pipe);
-}
-
-static int
-pipe_rw(struct file *fp, struct uio *uio)
-{
-    NOTYET(pipe_rw);
-    return 0;
-}
-
-static int
-pipe_ioctl(struct file *fp, u_int com, char *data)
-{
-    NOTYET(pipe_ioctl);
-    return 0;
-}
-
-static int
-pipe_select(struct file *fp, int flag)
-{
-    NOTYET(pipe_select);
-    return 0;
-}
-
-static int
-pipe_close(struct file *fp)
-{
-    NOTYET(pipe_close);
-    return 0;
-}
-
-const struct fileops pipeops = {
-    pipe_rw, pipe_ioctl, pipe_select, pipe_close
-};
-
-/*
- * kernel/sys_process.c: ptrace reads and writes the trap frame.  The
- * ptrace state ipc is also listed in sysctl.c's kernel symbol table.
- */
-struct ipc ipc;
-
-void
-ptrace()
-{
-    NOTYET(ptrace);
-}
-
-int
-procxmt()
-{
-    NOTYET(procxmt);
-    return 0;
 }

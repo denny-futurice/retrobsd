@@ -4,6 +4,7 @@
 #include <sys/inode.h>
 #include <sys/types.h>
 #include <sys/user.h>
+#include <machine/frame.h>
 #include <sys/proc.h>
 #include <sys/buf.h>
 #include <sys/namei.h>
@@ -79,11 +80,10 @@
  *              [argn]      ptr to argn
  *               ...
  *  argp ->     [arg0]      ptr to arg0
- *               []
- *               []
- *               []
- *    sp ->      []
+ *    sp ->     [argc]
  *
+ * The m68k layout of V7 and 2.11BSD (D30): crt0 finds argc at sp, argv
+ * at sp + 4 and envp after the null pointer that ends argv.
  */
 void exec_setupstack(unsigned entryaddr, struct exec_params *epp)
 {
@@ -102,11 +102,9 @@ void exec_setupstack(unsigned entryaddr, struct exec_params *epp)
     topp = (char ***)(epp->stack.vaddr + epp->stack.len - NBPW);            /* Last word of RAM */
     ucp = (char *)((unsigned)topp - roundup(epp->envbc + epp->argbc,NBPW)); /* arg string space */
     envp = (char **)(ucp - (epp->envc+1)*NBPW); /* Make place for envp[...], +1 for the 0 */
-    argp = envp - (epp->argc+1)*NBPW;           /* Make place for argv[...] */
-    u.u_frame [FRAME_SP] = (int)(argp-16);
-    u.u_frame [FRAME_R4] = epp->argc;           /* $a0 := argc */
-    u.u_frame [FRAME_R5] = (int)argp;           /* $a1 := argp */
-    u.u_frame [FRAME_R6] = (int)envp;           /* $a2 := env */
+    argp = envp - (epp->argc+1);                /* Make place for argv[...] */
+    *(int *)(argp - 1) = epp->argc;
+    u.u_frame->tf_regs[15] = (int)(argp - 1);   /* sp := &argc */
     *topp = argp;                               /* for /bin/ps */
 
     /*
@@ -137,7 +135,7 @@ void exec_setupstack(unsigned entryaddr, struct exec_params *epp)
         panic("exec check");
     }
 
-    u.u_frame [FRAME_PC] = entryaddr;
+    u.u_frame->tf_pc = entryaddr;
     DEBUG("Setting up new PC=%#x\n", entryaddr);
 
     /*
@@ -375,35 +373,13 @@ void exec_clear(struct exec_params *epp)
     u.u_ssize = epp->stack.len;
 
     /*
-     * Clear registers.
+     * Clear registers and the FPU (D30); exec_setupstack() sets the sp
+     * and pc.
      */
-    u.u_frame [FRAME_R1] = 0;           /* $at */
-    u.u_frame [FRAME_R2] = 0;           /* $v0 */
-    u.u_frame [FRAME_R3] = 0;           /* $v1 */
-    u.u_frame [FRAME_R7] = 0;           /* $a3 */
-    u.u_frame [FRAME_R8] = 0;           /* $t0 */
-    u.u_frame [FRAME_R9] = 0;           /* $t1 */
-    u.u_frame [FRAME_R10] = 0;          /* $t2 */
-    u.u_frame [FRAME_R11] = 0;          /* $t3 */
-    u.u_frame [FRAME_R12] = 0;          /* $t4 */
-    u.u_frame [FRAME_R13] = 0;          /* $t5 */
-    u.u_frame [FRAME_R14] = 0;          /* $t6 */
-    u.u_frame [FRAME_R15] = 0;          /* $t7 */
-    u.u_frame [FRAME_R16] = 0;          /* $s0 */
-    u.u_frame [FRAME_R17] = 0;          /* $s1 */
-    u.u_frame [FRAME_R18] = 0;          /* $s2 */
-    u.u_frame [FRAME_R19] = 0;          /* $s3 */
-    u.u_frame [FRAME_R20] = 0;          /* $s4 */
-    u.u_frame [FRAME_R21] = 0;          /* $s5 */
-    u.u_frame [FRAME_R22] = 0;          /* $s6 */
-    u.u_frame [FRAME_R23] = 0;          /* $s7 */
-    u.u_frame [FRAME_R24] = 0;          /* $t8 */
-    u.u_frame [FRAME_R25] = 0;          /* $t9 */
-    u.u_frame [FRAME_FP] = 0;
-    u.u_frame [FRAME_RA] = 0;
-    u.u_frame [FRAME_LO] = 0;
-    u.u_frame [FRAME_HI] = 0;
-    u.u_frame [FRAME_GP] = 0;
+    bzero(u.u_frame->tf_regs, sizeof(u.u_frame->tf_regs));
+    u.u_frame->tf_sr = 0;
+    bzero(&u.u_fpstate, sizeof(u.u_fpstate));
+    restorefpu();
 
     execsigs (u.u_procp);
 

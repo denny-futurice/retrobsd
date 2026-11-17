@@ -6,6 +6,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/user.h>
+#include <machine/frame.h>
 #include <sys/proc.h>
 #include <sys/inode.h>
 #include <sys/vm.h>
@@ -83,12 +84,15 @@ procxmt()
         ipc.ip_data = *(int*) ipc.ip_addr;
         break;
 
-    /* read u */
+    /*
+     * read u: a long at any even offset, since tf_pc in the trap frame
+     * is only 2-byte aligned (D22).
+     */
     case PT_READ_U:
         i = (int) ipc.ip_addr;
-        if (i < 0 || i >= USIZE)
+        if (i < 0 || i > USIZE - (int) sizeof(int))
             goto error;
-        ipc.ip_data = ((unsigned*)&u) [i/sizeof(int)];
+        ipc.ip_data = *(int *) ((char *) &u + (i & ~1));
         break;
 
     /* write user I */
@@ -100,13 +104,23 @@ procxmt()
         *(int*) ipc.ip_addr = ipc.ip_data;
         break;
 
-    /* write u */
+    /*
+     * write u: only the user registers in the trap frame.  SR keeps
+     * the supervisor bit and interrupt mask of user mode (D22).
+     */
     case PT_WRITE_U:
-        i = (int)ipc.ip_addr;
-        p = (int*)&u + i/sizeof(int);
-        for (i=0; i<FRAME_WORDS; i++)
-            if (p == &u.u_frame[i])
+        p = (int *) ((char *) &u + (int) ipc.ip_addr);
+        for (i = 0; i < 16; i++)
+            if (p == &u.u_frame->tf_regs[i])
                 goto ok;
+        if (p == (int *) &u.u_frame->tf_pc) {
+            u.u_frame->tf_pc = ipc.ip_data;
+            break;
+        }
+        if (p == (int *) &u.u_frame->tf_sr) {
+            u.u_frame->tf_sr = ipc.ip_data & PSL_USERSR;
+            break;
+        }
         goto error;
 ok:
         *p = ipc.ip_data;
@@ -115,12 +129,11 @@ ok:
     /* set signal and continue */
     /* one version causes a trace-trap */
     case PT_STEP:
-        /* Use Status.RP bit to indicate a single-step request. */
-        u.u_frame [FRAME_STATUS] |= ST_RP;
+        u.u_frame->tf_sr |= PSL_T;      /* D22 */
         /* FALL THROUGH TO ... */
     case PT_CONTINUE:
         if ((int)ipc.ip_addr != 1)
-            u.u_frame [FRAME_PC] = (int)ipc.ip_addr;
+            u.u_frame->tf_pc = (int)ipc.ip_addr;
         if (ipc.ip_data > NSIG)
             goto error;
         u.u_procp->p_ptracesig = ipc.ip_data;

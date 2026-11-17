@@ -6,6 +6,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/user.h>
+#include <machine/frame.h>
 #include <sys/proc.h>
 #include <sys/inode.h>
 #include <sys/file.h>
@@ -280,9 +281,12 @@ pipe()
         iput (ip);
         return;
     }
-#ifdef __mips__
+#if defined(__mips__)
     /* Move a secondary return value to register $v1. */
     u.u_frame [FRAME_R3] = u.u_rval;
+#elif defined(__mc68000__)
+    /* The second descriptor goes in d1 (D23). */
+    u.u_frame->tf_regs[1] = u.u_rval;
 #else
 #error "pipe return value for unknown architecture"
 #endif

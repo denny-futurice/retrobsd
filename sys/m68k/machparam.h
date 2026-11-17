@@ -179,6 +179,7 @@ void clockintr(struct trapframe *tf);
  * Copy the live user FPU state to u.u_fpstate (locore.S), for fork().
  */
 void savefpu(void);
+void restorefpu(void);
 
 #endif /* KERNEL */
 
