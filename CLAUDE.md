@@ -24,7 +24,7 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   or PMMU. Write that code against the Motorola manuals and test it with hand-built frames; real
   validation is M6 on WinUAE (Amiga). Do not integrate other emulators.
 - **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
-  (toolchain/boot, FPU, the kernel `startup.S`, `machdep.c`, trap handling and the clock, and
+  (toolchain/boot, FPU, the kernel `startup.S`, `machdep.c`, trap handling, the clock, system calls and
   a whole-kernel build and boot) on QEMU
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - **Editor/clangd:** `sys/`, `src/` and `include/compile_flags.txt` plus the top `.clangd` make

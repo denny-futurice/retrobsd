@@ -24,6 +24,7 @@ struct hwframe {
 };
 
 extern u_int fake_ssp;                  /* kernel sp before fake_trap() */
+extern u_int usertop;                   /* USER_DATA_END, for user code */
 
 void ttest_init(void);
 void enter_user(void (*pc)(void), int sr);              /* does not return */

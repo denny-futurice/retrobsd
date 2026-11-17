@@ -31,6 +31,14 @@
 #        callout  kern_clock.c timeout() fires on the tick it was due
 #        todr     clock.c inittodr(): time of day from RTC 2, or the
 #                 file system time if the RTC is behind it
+#        sysargs  trap.c: trap #0 copies the arguments from usp + 4, EFAULT
+#                 past the user region (D23)
+#        sysret   trap.c: result in d0, errno and carry on error,
+#                 EJUSTRETURN, other registers kept (D23)
+#        sysrestart trap.c: ERESTART runs trap #0 again (D23)
+#        nosys    trap.c: an out-of-range number posts SIGSYS, EINVAL if
+#                 SIGSYS is ignored
+#        msec     clock.c sc_msec(): milliseconds from the tick count
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
@@ -69,7 +77,8 @@ expected() {
     startup) echo "startup ok" ;;
     bootinfo|kstring|useraddr|udelay|swtch|fpswtch) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
-    uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr) echo "$1 ok" ;;
+    uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
+    sysargs|sysret|sysrestart|nosys|msec) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -138,7 +147,8 @@ run_test() {
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
     machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
-    traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr"
+    traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
+        sysargs sysret sysrestart nosys msec"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -184,7 +194,8 @@ run_test() {
 
 status=0
 for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
-        ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr kernel}; do
+        ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
+        sysargs sysret sysrestart nosys msec kernel}; do
     run_test "$t" || status=1
 done
 exit $status

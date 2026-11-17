@@ -16,6 +16,11 @@ int ustack[USTACK];
 u_int fake_ssp;
 struct vmrate cnt;
 static struct proc proc0;
+u_int usertop = USER_DATA_END;
+
+/* trap.c's system call table; the syscall tests define their own. */
+__attribute__((weak)) const struct sysent sysent[] = { { 0, nosys } };
+__attribute__((weak)) const int nsysent = 1;
 
 void
 psignal(struct proc *p, int sig)

@@ -221,7 +221,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       until task 2, kernel faults dump the registers and panic, user
       faults post the signal and run the PIC32 return path (signals,
       `setpri`, `swtch`, `addupc`). User bus and address errors are
-      trimmed to format 0 (D26). `trap #0` gives `SIGILL` until task 5.
+      trimmed to format 0 (D26). `trap #0` gave `SIGILL` until task 5.
       Smoke tests `ktrap`, `uill`, `upriv`, `utrace`, `udivz` on QEMU and
       `buserr`, `ufpe`, `fpbiu` on hand-built frames; `run.sh` now
       reports build failures instead of reusing stale objects
@@ -257,9 +257,16 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       the new `copyinstr`, which stops at the region end. Smoke test
       `useraddr` extended. There is no hardware protection without an
       MMU: these checks catch bad arguments, not hostile code
-- [ ] 5. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
+- [x] 5. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
       mode: arguments, results in `d0`/`d1`, carry on error, restart.
       Depends on 1 and 4
+      Done: `syscall()` in `sys/m68k/trap.c` per D23 (arguments by
+      `copyin` from `usp + 4`, `EFAULT` past the user region; the handler
+      runs under `setjmp(&u.u_qsave)`); `trap #1`-`#15` still give
+      `SIGILL`. `d1` is left alone: only `pipe()` sets it, through
+      `u_frame` (task 6). `nosys()` in `trap.c`, `sc_msec()` in
+      `clock.c` from a tick count (5 ms resolution); both stubs removed.
+      Smoke tests `sysargs`, `sysret`, `sysrestart`, `nosys`, `msec`
 - [ ] 6. m68k trap frame users (D22): `exec_subr.c` (`exec_setupstack`,
       `exec_clear`; the m68k ABI passes `argc`/`argv`/`envp` on the
       stack), `sys_process.c` and the pipe return value in `sys_pipe.c` use
