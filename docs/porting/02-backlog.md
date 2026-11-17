@@ -281,9 +281,16 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `procxmt` reads `u` at any even offset (the PC is 2-byte aligned),
       writes only `d0`-`a7`, PC and the user SR bits, and `PT_STEP` sets
       `PSL_T`. Smoke tests `execstack`, `execclear`, `pipe2`, `ptrace`
-- [ ] 7. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
+- [x] 7. Signals: `sendsig`/`sigreturn` with an m68k `sigcontext` that also
       holds the FPU state (D12). Smoke test: signal frame round trip in user
       mode. Depends on 3 and 5
+      Done: `sys/m68k/signal.c` per D31. `sigcontext` holds every
+      register, a flags word and `struct fpstate` (moved to
+      `<machine/fpu.h>`); the frame is built in the kernel and copied out.
+      The handler gets a reset FPU and a format 0 frame without tracing;
+      `sigreturn` refuses unknown flags, an odd PC and FPU frames
+      `frestore` would reject. Stubs removed; `stubs.c` holds only
+      `icode`. Smoke tests `sigframe`, `sigreturn`, `sigfpu`, `sigfault`
 - [ ] 8. Process 1 entry: m68k `icode`, and `startup.S` enters user mode at
       `USER_DATA_START` when `main` returns in process 1, as PIC32's reset
       code does. Smoke test: user code runs and its `exit` syscall is

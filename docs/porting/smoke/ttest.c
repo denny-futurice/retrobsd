@@ -28,6 +28,12 @@ psignal(struct proc *p, int sig)
     got_signal(sig);
 }
 
+void
+fatalsig(int sig)
+{
+    psignal(u.u_procp, sig);
+}
+
 int
 issignal(struct proc *p)
 {

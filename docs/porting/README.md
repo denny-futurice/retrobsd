@@ -58,13 +58,13 @@ The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/mac
 `ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
 `FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
-The trap tests (`ktrap` to `ptrace`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
+The trap tests (`ktrap` to `sigfault`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
 `sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
 (`psignal()` calls the test's `got_signal()`), enters user mode with `rte`, and pushes
 hand-built exception frames for what QEMU does not raise (D25). The system call tests define
 their own small `sysent` table in place of `ttest.c`'s one-entry default, and run their user
-code with the stack at `USER_DATA_END`, where `copyin` accepts the arguments. The exec, pipe
-and ptrace tests also link the one `sys/kernel` file they check and stub its other callees.
+code with the stack at `USER_DATA_END`, where `copyin` accepts the arguments. The exec, pipe,
+ptrace and signal tests also link the one kernel file they check and stub its other callees.
 Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
 The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
 `Makefile` (in place and incremental, like a developer build; the build log goes to
@@ -103,6 +103,10 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `execclear` | exec zeroes the registers and SR, resets the FPU, clears the bss (D30) | `execclear ok` |
 | `pipe2`    | `pipe()` from user mode returns the descriptors in `d0` and `d1` | `pipe2 ok` |
 | `ptrace`   | `procxmt()`: register-only `PT_WRITE_U`, user SR bits, `PT_STEP` sets the trace bit | `ptrace ok` |
+| `sigframe` | `sendsig`: handler arguments, trampoline return, saved registers, format 0 entry without tracing (D31) | `sigframe ok` |
+| `sigreturn` | user-mode round trip: registers, PC, mask and user SR bits from the `sigcontext` | `sigreturn ok` |
+| `sigfpu`   | FPU saved in the `sigcontext`, reset for the handler, restored by `sigreturn` | `sigfpu ok` |
+| `sigfault` | bad contexts refused (`EFAULT`/`EINVAL`), signal frame running into the data gives `SIGILL` | `sigfault ok` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a

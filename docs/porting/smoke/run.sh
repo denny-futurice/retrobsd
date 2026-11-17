@@ -43,13 +43,17 @@
 #        execclear exec_subr.c: exec clears the registers, SR and FPU (D30)
 #        pipe2    sys_pipe.c: pipe() from user mode returns d0 and d1
 #        ptrace   sys_process.c: procxmt() register access and PT_STEP
+#        sigframe signal.c sendsig(): the signal frame and handler entry (D31)
+#        sigreturn signal.c: user-mode signal round trip through sigreturn
+#        sigfpu   signal.c: FPU saved, reset for the handler, restored
+#        sigfault signal.c: bad sigcontexts refused, stack overflow SIGILL
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
 # the kernel; the trap tests also add trap.c, clock.c, kern_clock.c and
-# ttest.c; the exec, pipe and ptrace tests also link the one
-# sys/kernel file they test.  The kernel test
+# ttest.c; the exec, pipe, ptrace and signal tests also link the one
+# kernel file they test.  The kernel test
 # builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
 # developer build; the products are gitignored) and boots it.
 set -e
@@ -83,7 +87,8 @@ expected() {
     bootinfo|kstring|useraddr|udelay|swtch|fpswtch) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
-    sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace) echo "$1 ok" ;;
+    sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
+    sigframe|sigreturn|sigfpu|sigfault) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -153,7 +158,8 @@ run_test() {
     # Tests from startup on use the kernel's own startup code and memory map.
     machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
-        sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace"
+        sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
+        sigframe sigreturn sigfpu sigfault"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -180,16 +186,17 @@ run_test() {
         build ${CROSS}gcc $cflags -c "$here/ttest.c" -o "$out/ttest.o"
         objs="$objs $out/trap.o $out/clock.o $out/kern_clock.o $out/ttest.o"
     fi
-    # The one machine-independent kernel file a test checks.
+    # The one kernel file, under sys/, a test checks.
     case $name in
-    execstack|execclear) extra=exec_subr ;;
-    pipe2) extra=sys_pipe ;;
-    ptrace) extra=sys_process ;;
+    execstack|execclear) extra=kernel/exec_subr ;;
+    pipe2) extra=kernel/sys_pipe ;;
+    ptrace) extra=kernel/sys_process ;;
+    sigframe|sigreturn|sigfpu|sigfault) extra=m68k/signal ;;
     *) extra= ;;
     esac
     if [ -n "$extra" ]; then
-        build ${CROSS}gcc $cflags -c "$top/sys/kernel/$extra.c" -o "$out/$extra.o"
-        objs="$objs $out/$extra.o"
+        build ${CROSS}gcc $cflags -c "$top/sys/$extra.c" -o "$out/${extra##*/}.o"
+        objs="$objs $out/${extra##*/}.o"
     fi
     build ${CROSS}gcc $cflags -c "$here/$name.c" -o "$out/$name.o"
     build ${CROSS}gcc $cflags -c "$crt" -o "$out/$name-crt.o"
@@ -212,7 +219,7 @@ status=0
 for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        kernel}; do
+        sigframe sigreturn sigfpu sigfault kernel}; do
     run_test "$t" || status=1
 done
 exit $status

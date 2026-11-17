@@ -513,3 +513,53 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   packs the vectors, which `stack.len` in `exec_aout.c`/`exec_elf.c`
   (`argc + envc + 4` words) covers exactly. Changing the layout later means
   changing the kernel and `crt0` together.
+
+## D31: Signal context: every register in a public, extensible `sigcontext`
+- **Context:** M3 task 7 needs an m68k `struct sigcontext` for `sendsig`
+  and `sigreturn`. Three layouts were weighed. A: every user register in
+  the public `sigcontext` (PIC32, Linux m68k). B: 4.4BSD hp300 and NetBSD
+  m68k, a small public `sigcontext` (mask, `sp`, `fp`, PC, SR) followed by
+  a private kernel area with the other registers, extra exception frame
+  words and FPU state. C: 2.11BSD on the PDP-11, where the kernel saves only
+  the scratch registers and relies on the C calling convention to keep
+  the rest across the handler. C saves about 48 bytes a signal, but fails
+  for handlers that do not follow GCC's convention and hides registers a
+  handler may need to read or change (debuggers, emulation, `SIGFPE` fix-up).
+  Without an MMU, user register values grant no privilege; only SR and PC
+  need checks, in every option.
+- **Decision:** option A. `sigcontext` holds the old signal mask and
+  alternate stack state, `d0`-`a7`, PC and SR, so the trampoline only
+  calls `sigreturn`. Two additions keep it open for an MMU:
+  - A flags/size word says which optional parts follow, so later state
+    (bus fault state for restartable faults with demand paging, which D26
+    rules out today) can be added behind it as a private tail, as in B.
+  - The FPU state is the last member, so such a tail never moves a public
+    field.
+  `sendsig` builds the context in a kernel buffer and `copyout`s it, and
+  `sigreturn` `copyin`s and checks it, instead of using user pointers
+  directly. Without an MMU these are range checks and copies; with one they
+  become the real `copyin`/`copyout`, and the layout does not change.
+  - Signal frame, lowest address first: the trampoline address as the
+    handler's return address, `sig`, `code`, `scp`, then the
+    `sigcontext`. The handler returns with `sp` at `sig`; the trampoline
+    does `pea 12(%sp)`, pushes a dummy return address and calls
+    `sigreturn(scp)` (D23), then `exit` if that fails. It does not use the
+    `scp` slot, which a C handler may overwrite.
+  - FPU: `sigcontext` ends with the whole `struct fpstate` (D28, 324
+    bytes), now in `<machine/fpu.h>` so userland sees it. The handler
+    starts with a reset FPU, as after exec (D30), so a pending FPU
+    exception cannot fire in it; `sigreturn` loads the saved state.
+  - The handler is entered from a format 0 frame without tracing:
+    `sendsig` trims any other format (`trimframe`, D26), so `rte` cannot
+    resume a half-done FPU instruction (format 9), and clears `T1`/`T0`;
+    the saved SR keeps them for `sigreturn`.
+  - `sigreturn` refuses (`EINVAL`) unknown flags, an odd PC, and an FPU
+    frame `frestore` would reject with a kernel-mode format error: only a
+    null frame, or one with this FPU's version byte (from the last
+    non-null frame `sendsig` saved) and a 68881/2 idle or busy size. SR
+    keeps only the user bits (D22), and the mask drops `SIGKILL`/`SIGSTOP`.
+- **Consequences:** the layout is user-visible ABI from M5 on (libc, the
+  trampoline, any handler using `scp`); a later change needs the flags word
+  or a new layout. The kernel copy is 424 bytes of kernel stack, mostly
+  the FPU area, which fits in `u` (D28). The version check and the `fsave`
+  frame sizes cannot run on QEMU (D25) and are rechecked in M6.
