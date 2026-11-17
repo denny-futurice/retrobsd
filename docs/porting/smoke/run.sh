@@ -14,6 +14,10 @@
 #        useraddr machdep.c baduaddr/badkaddr, copyin/copyout range checks
 #        udelay   machdep.c udelay() against the Goldfish RTC
 #        halt     machdep.c boot(RB_HALT) stops QEMU (exit status 0)
+#        swtch    locore.S setjmp/longjmp: switch to the process in u0 and
+#                 back, u areas and p_addr exchanged
+#        fpswtch  locore.S: FPU registers follow each process across the
+#                 switch; savefpu() for fork() (D28)
 #        ktrap    trap.c: a kernel-mode exception dumps registers and panics
 #        uill     trap.c: user illegal instruction gives SIGILL, frame checked
 #        upriv    trap.c: user privileged instruction gives SIGILL
@@ -51,18 +55,19 @@ mkdir -p "$out"
 
 CFLAGS="-mcpu=68030 -m68881 -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie \
 -fno-stack-protector -std=gnu99 -Os -Wall -Werror"
-# Kernel headers for the machdep tests, as the board Makefile sets them up.
+# Kernel headers and options for the machdep tests, as the virt board Makefile
+# sets them up.
 mkdir -p "$out/inc"
 ln -sfn "$top/sys/include" "$out/inc/sys"
 ln -sfn "$top/sys/m68k" "$out/inc/machine"
-KCFLAGS="$CFLAGS -fno-builtin -DKERNEL -I$out/inc"
+KCFLAGS="$CFLAGS -fno-builtin -DKERNEL -DFPU_NO_FSAVE -I$out/inc"
 
 expected() {
     case "$1" in
     hello) echo "hello m68030" ;;
     fpu) echo "fpu ok" ;;
     startup) echo "startup ok" ;;
-    bootinfo|kstring|useraddr|udelay) echo "$1 ok" ;;
+    bootinfo|kstring|useraddr|udelay|swtch|fpswtch) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr) echo "$1 ok" ;;
     halt) echo "halted" ;;
@@ -132,7 +137,7 @@ run_test() {
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
-    machdep="bootinfo kstring useraddr udelay halt"
+    machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
@@ -178,7 +183,7 @@ run_test() {
 }
 
 status=0
-for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt \
+for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr kernel}; do
     run_test "$t" || status=1
 done
