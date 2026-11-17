@@ -75,7 +75,7 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `startup` | kernel `startup.S`: BSS clear, stack, VBR       | `startup ok`    |
 | `bootinfo` | `startup()` takes `physmem` from QEMU bootinfo | `bootinfo ok`   |
 | `kstring`  | `ffs`, string and memory routines              | `kstring ok`    |
-| `useraddr` | `baduaddr`/`badkaddr`, `copyin`/`copyout` range checks | `useraddr ok` |
+| `useraddr` | `baduaddr`/`badkaddr`, range checks without wraparound, `copyin`/`copyout`/`copyinstr` | `useraddr ok` |
 | `udelay`   | `udelay()` timing against the Goldfish RTC     | `udelay ok`     |
 | `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
 | `swtch`    | `setjmp`/`longjmp` switch to the process in `u0` and back: `u`/`u0` and `p_addr` exchanged | `swtch ok` |

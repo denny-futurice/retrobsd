@@ -11,7 +11,7 @@
 #        startup  kernel startup.S: BSS clear, stack, VBR
 #        bootinfo machdep.c startup(): physmem from the QEMU bootinfo
 #        kstring  machdep.c ffs, string and memory routines
-#        useraddr machdep.c baduaddr/badkaddr, copyin/copyout range checks
+#        useraddr machdep.c address and range checks, copyin/copyout/copyinstr
 #        udelay   machdep.c udelay() against the Goldfish RTC
 #        halt     machdep.c boot(RB_HALT) stops QEMU (exit status 0)
 #        swtch    locore.S setjmp/longjmp: switch to the process in u0 and

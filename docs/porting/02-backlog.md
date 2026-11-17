@@ -246,9 +246,17 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       the `virt` board sets `FPU_NO_FSAVE`; smoke tests `swtch`, `fpswtch`.
       FPU reset on `exec` is left to task 6, FPU state in the signal
       frame to task 7
-- [ ] 4. `copyin`/`copyout` exist (M2 `machdep.c`) but only range-check;
+- [x] 4. `copyin`/`copyout` exist (M2 `machdep.c`) but only range-check;
       review them against the user region before the syscall path relies
       on the same check for its arguments
+      Done: `baduarange`/`badkrange` compare the length with the room left
+      in the region (the old `a + n - 1` check let a huge length wrap
+      around, and rejected zero-length copies at the region start); used
+      by `copyin`/`copyout`, `ioctl`, `physio` and `/dev/mem`. `rwuio`
+      now checks each user `iovec`, and `namei` copies user names with
+      the new `copyinstr`, which stops at the region end. Smoke test
+      `useraddr` extended. There is no hardware protection without an
+      MMU: these checks catch bad arguments, not hostile code
 - [ ] 5. `trap #0` syscall path, `nosys`, `sc_msec`. Smoke test from user
       mode: arguments, results in `d0`/`d1`, carry on error, restart.
       Depends on 1 and 4
