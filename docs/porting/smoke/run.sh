@@ -60,6 +60,12 @@
 #        errmsg   sysctl.c, kern_sysctl.c: CPU_ERRMSG from user mode
 #        nlist    sysctl.c, kern_sysctl.c: CPU_NLIST from user mode, as an
 #                 ordinary user (D35)
+#        vdprobe  vd.c: both virtio disks found in command-line order, past
+#                 another virtio device, with size and read-only flag (D36)
+#        vdread   vd.c: reads finish by interrupt, queued, EOF at the end
+#        vdwrite  vd.c: writes reach the disk; sector 0 and a read-only
+#                 disk refuse them
+#        vdpart   vd.c, disklabel.c: MBR partitions, offsets and bounds
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
@@ -67,8 +73,7 @@
 # the kernel; the trap tests also add trap.c, clock.c, kern_clock.c and
 # ttest.c; the exec, pipe, ptrace, signal and tty tests also link the one
 # kernel file they test, and the tty tests get QEMU input on stdin.  The
-# kernel test
-# builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
+# vd tests get two disk images (see vdstub.h).  The kernel test builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
 # developer build; the products are gitignored) and boots it.
 set -e
 
@@ -103,7 +108,7 @@ expected() {
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
     sigframe|sigreturn|sigfpu|sigfault|uentry|icode|ttyrx|ttyrxopen|intrnest|\
-    consdev|errmsg|nlist) echo "$1 ok" ;;
+    consdev|errmsg|nlist|vdprobe|vdread|vdwrite|vdpart) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -162,6 +167,30 @@ run_kernel() {
     check_result kernel "$(run_qemu "$board/unix.elf")" halts
 }
 
+# The vd test disks (vdstub.h): every sector holds 64 lines "%07d\n" of
+# its number.  Disk A (2048 sectors) has an MBR in sector 0 with two
+# partitions, 64+512 and 576+256 sectors; disk B (1024 sectors) has none.
+# blkdebug fails reads of disk A's sector 2000 with EIO.
+pattern() {
+    awk -v from="$1" -v to="$2" 'BEGIN {
+        for (n = from; n < to; n++) for (i = 0; i < 64; i++) printf "%07d\n", n }'
+}
+# A 16-byte MBR entry: type, start, size (start and size < 65536).
+mbr_entry() {
+    printf '\0\0\0\0\'"$(printf %o "$1")"'\0\0\0'
+    for v in "$2" "$3"; do
+        printf '\'"$(printf %o $((v % 256)))"'\'"$(printf %o $((v / 256)))"'\0\0'
+    done
+}
+make_disks() {
+    [ -f "$out/diskb.img" ] && return
+    { head -c 446 /dev/zero; mbr_entry 183 64 512; mbr_entry 184 576 256
+      head -c 32 /dev/zero; printf '\125\252'; pattern 1 2048; } >"$out/diska.img"
+    pattern 0 1024 >"$out/diskb.img"
+    printf '[inject-error]\nevent = "read_aio"\nerrno = "5"\nsector = "2000"\n' \
+        >"$out/diska.dbg"
+}
+
 # Run one build step, logging to $log.  run_test is called in an || list,
 # where set -e does not apply, so failures are recorded in $buildfail.
 build() {
@@ -178,7 +207,7 @@ run_test() {
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist"
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart"
     class=plain
     case " startup cacr $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -198,6 +227,8 @@ run_test() {
             cflags="$cflags -DGFTTY_ENABLED -DCONS_MAJOR=UART_MAJOR -DCONS_MINOR=0" ;;
         consdev|errmsg|nlist)
             cflags="$cflags -DCONS_MAJOR=UART_MAJOR -DCONS_MINOR=0" ;;
+        vd*)
+            cflags="$cflags -DVD_ENABLED" ;;
         esac
         build ${CROSS}gcc $cflags -c "$top/sys/m68k/machdep.c" -o "$out/machdep.o"
         build ${CROSS}gcc $cflags -c "$here/ktest.c" -o "$out/ktest.o"
@@ -218,6 +249,7 @@ run_test() {
     sigframe|sigreturn|sigfpu|sigfault) extra=m68k/signal ;;
     ttyrx|ttyrxopen|intrnest) extra=m68k/gftty ;;
     consdev|errmsg|nlist) extra="kernel/kern_sysctl m68k/sysctl" ;;
+    vd*) extra="m68k/vd m68k/disklabel" ;;
     *) extra= ;;
     esac
     for f in $extra; do
@@ -242,9 +274,18 @@ run_test() {
         input=$out/tty-input
         awk 'BEGIN { for (i = 0; i < 300; i++) printf "%c", 97 + i % 26 }' >"$input" ;;
     esac
+    disks=
+    case $name in vd*)
+        make_disks
+        cp "$out/diska.img" "$out/$name-a.img"
+        disks="-drive file=blkdebug:$out/diska.dbg:$out/$name-a.img,if=none,format=raw,id=a
+            -device virtio-blk-device,drive=a -device virtio-rng-device
+            -drive file=$out/diskb.img,if=none,format=raw,id=b,readonly=on
+            -device virtio-blk-device,drive=b" ;;
+    esac
     halts=
     [ "$name" = halt ] || [ $class = trap ] && halts=yes
-    check_result "$name" "$(run_qemu "$out/$name.elf" $prefill)" $halts
+    check_result "$name" "$(run_qemu "$out/$name.elf" $prefill $disks)" $halts
 }
 
 status=0
@@ -252,7 +293,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist kernel}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart kernel}; do
     run_test "$t" || status=1
 done
 exit $status

@@ -58,7 +58,7 @@ The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/mac
 `ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
 `FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
-The trap tests (`ktrap` to `nlist`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
+The trap tests (`ktrap` to `vdpart`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
 `sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
 (`psignal()` calls the test's `got_signal()`), enters user mode with `rte`, and pushes
 hand-built exception frames for what QEMU does not raise (D25). The system call tests define
@@ -71,11 +71,17 @@ return into user mode. The tty tests link `sys/m68k/gftty.c` with `ttystub.h` in
 and `run.sh` feeds them 300 bytes of console input on QEMU's stdin. The sysctl tests link
 `sys/kernel/kern_sysctl.c` and `sys/m68k/sysctl.c`; `sysctltest.h` defines the kernel symbols
 they refer to and runs a list of `__sysctl()` calls from user mode, with the arguments and
-buffers in the user region. A test with no expected output in `run.sh` fails.
+buffers in the user region. The `vd` tests link `sys/m68k/vd.c` and `sys/m68k/disklabel.c`;
+`vdstub.h` stands in for the buffer cache, with a `biowait()` that sleeps with `stop` until the
+disk interrupt calls `biodone()`. `run.sh` builds two disk images, each sector holding its
+own number in text: disk A, read-write and copied for each test, has an MBR with two
+partitions, and QEMU's `blkdebug` fails reads of one of its sectors; disk B is read-only,
+without an MBR. A `virtio-rng-device` sits in a slot between them, so the scan must skip it.
+A test with no expected output in `run.sh` fails.
 Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
 The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
 `Makefile` (in place and incremental, like a developer build; the build log goes to
-`$OUT/kernel-build.log`) and boots it. Without a root filesystem (D20) the kernel panics, and
+`$OUT/kernel-build.log`) and boots it without a disk. Without a root filesystem (D20) the kernel panics, and
 `panic()` halts QEMU, so the test expects the panic message and exit status 0.
 
 | Test    | Checks                                            | Expected output |
@@ -123,6 +129,10 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `consdev` | `sysctl` `CPU_CONSDEV` from user mode: the console device | `consdev ok` |
 | `errmsg`  | `sysctl` `CPU_ERRMSG` from user mode: messages, range, short buffer | `errmsg ok` |
 | `nlist`   | `sysctl` `CPU_NLIST` from user mode as an ordinary user (D35) | `nlist ok` |
+| `vdprobe` | both virtio disks found in command-line order, past another virtio device, with size and read-only flag (D36) | `vdprobe ok` |
+| `vdread`  | reads finish by interrupt, multi-block, queued, a device error gives `EIO`, EOF at the end of the disk | `vdread ok` |
+| `vdwrite` | writes reach the disk through the raw disk and a partition; sector 0 and a read-only disk refuse them | `vdwrite ok` |
+| `vdpart`  | MBR partitions (`disklabel.c`): entries, offsets, EOF and truncation at the end, missing partitions, a disk without an MBR | `vdpart ok` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
@@ -138,8 +148,12 @@ make -C sys/m68k/virt -j$(nproc)
 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel sys/m68k/virt/unix.elf -nographic
 ```
 
+To attach a disk, add `-drive file=disk.img,if=none,format=raw,id=d0 -device
+virtio-blk-device,drive=d0`. Disks are `vd0`, `vd1` in command-line order (D36); root is the
+first MBR partition of `vd0` (`vd0a`) and swap the second (`vd0b`).
+
 QEMU loads the ELF and passes its bootinfo records (memory size, CPU) after `_end`. The
-console is the Goldfish TTY on stdio. Until M4 there is no root filesystem, so the kernel ends
+console is the Goldfish TTY on stdio. Until the M4 root filesystem image exists, the kernel ends
 with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
 (exit status 0). Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
 images in `$OUT` (default `/tmp/retrobsd-m68k-smoke`).

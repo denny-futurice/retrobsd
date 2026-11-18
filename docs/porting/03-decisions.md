@@ -240,7 +240,7 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** the M2 boot test exercises startup, the console,
   `printf`, table setup and `panic()` without a disk. M3 empties and
   deletes `stubs.c` (done, D32); M4 replaces the stubbed root and swap with the virtio
-  block device in `Config` and `devices.kconf`.
+  block device in `Config` and `devices.kconf` (done, D36).
 
 ## D21: Running the first user process moves from M3 to M4
 - **Context:** M3 listed "run a static `init` as a user process". That
@@ -659,3 +659,43 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** `ps` and the other `knlist` users work for ordinary
   users, as far as the kernel is concerned. The check now runs after the
   name is copied in, so a bad name pointer gives `EFAULT` before `EPERM`.
+
+## D36: virtio block driver `vd`, interrupt driven, MBR partitions
+- **Context:** QEMU's m68k `virt` board has 128 virtio-mmio slots
+  (`0xff010000`, `0x200` apart, interrupts on Goldfish PICs 2-5, source
+  slot % 32 + 1) and forces the modern (virtio 1.0) interface: the
+  registers, the rings and the configuration space are little-endian.
+  QEMU fills the slots from 127 down, in command-line order. PIC32's
+  `sd.c` does each transfer synchronously in `strategy` and copies the MBR
+  partition entries straight into `struct diskpart`, whose `u_int` fields
+  are little-endian on disk. Polling for completion with interrupts masked
+  is the state in which QEMU's main loop, which completes disk requests,
+  is starved by a pending masked interrupt (D33).
+- **Decision:**
+  - `sys/m68k/vd.c` ("virtio disk", block major 0, `/dev/vd0`, `vd0a`...)
+    scans all 128 slots, from 127 down, when the first unit is probed, so
+    `vd0` is the first `-device virtio-blk-device` on the QEMU command
+    line. It accepts only `VIRTIO_F_VERSION_1` and reads the device's
+    read-only flag; every value exchanged with the device is byte-swapped.
+    Registers are read and written with `move.l` in inline assembly: GCC
+    turns a masked `volatile` read into a byte `btst`, and virtio-mmio
+    ignores accesses that are not 32 bits wide.
+  - I/O is interrupt driven: `vdstrategy()` queues the buffer and starts
+    the request; the interrupt, dispatched by `intr()` (D33), finishes it
+    with `biodone()` and starts the next. One request is in flight per
+    disk, on a static queue of 4 descriptors. The caches are off (D34), so
+    the device writes straight into kernel or user buffers.
+  - Partitions follow PIC32: an MBR in sector 0, minor = unit * 8 +
+    partition, partition 0 is the whole disk, 1-4 the MBR entries. Writes
+    to sector 0 are refused. The MBR is parsed by `sys/m68k/disklabel.c`,
+    separate from the driver, so later disk drivers (Amiga IDE or SCSI)
+    share it and an Amiga RDB parser can be added next to it (M6). Three
+    partition bits allow 7 partitions per disk, enough for an Amiga disk
+    with AmigaOS and BSD partitions.
+  - The board `Config` puts root on `vd0a` and swap on `vd0b`. The `/dev`
+    names in `rootfs.manifest` and `etc/fstab` change from `sd` to `vd`
+    with the root filesystem task.
+- **Consequences:** the driver needs a working `sleep()` in `biowait()`,
+  including at boot when the root is opened. Without a disk, or without a
+  filesystem on it, the kernel still stops at the D20 root panic until the
+  mount task.

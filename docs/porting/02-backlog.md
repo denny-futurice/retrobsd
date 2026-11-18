@@ -323,15 +323,19 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       for ordinary users. Smoke tests `consdev`, `errmsg`, `nlist`
 
 ## M4: Storage and filesystem (endianness work)
-- [ ] virtio-mmio block driver; add it to `devices.kconf` and switch the
-      board `Config` root and swap from the D20 stub to it
+- [x] virtio-mmio block driver `vd` (D36), MBR parser in
+      `sys/m68k/disklabel.c`; add it to `devices.kconf` and switch the
+      board `Config` root and swap from the D20 stub to it. Smoke tests
+      `vdprobe`, `vdread`, `vdwrite`, `vdpart`
 - [ ] Endianness audit of `tools/fsutil` and the on-disk format
 - [ ] Big-endian ELF32 / EM_68K support in `tools/elf2aout`; m68k a.out magic
 - [ ] Audit struct layout (2-byte `int` alignment, D17): `stat`, `utmp`, a.out
       header, directory entries. Already checked: `dinode`, `fs`, `direct` and
       the a.out `exec` header have the same field offsets with 2- and 4-byte
       alignment; comparing against the host build of `fsutil` is still open
-- [ ] Build a root filesystem image; `fsutil --check` passes. Drop the
+- [ ] Build a root filesystem image; `fsutil --check` passes. Rename the
+      disk nodes in `rootfs.manifest` and `etc/fstab` from `sd` to `vd`
+      (D36). Drop the
       entries for programs disabled in `src/cmd/Makefile` from
       `rootfs.manifest`: the native toolchain (D8) `/bin/{adb,aout,ar,as,cc,
       cpp,lcc,lcpp,ld,nm,ranlib,scc,size,strip}`, `/libexec/{smallc,smlrc}`,
@@ -373,6 +377,9 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       the end of `exec_clear()` and after `ptrace` writes; decide on the
       data cache together with `CIIN` for device registers and clears
       after device input (TTY `READ_BUFFER`, virtio, chip DMA)
+- [ ] Amiga Rigid Disk Block (RDB) partitions: a parser next to the MBR
+      one in `sys/m68k/disklabel.c` (D36). Partitioning and image tools
+      for the Amiga are existing ones, not `fsutil`
 - [ ] Prepare a real hardware board: the Amiga (D7, D25). Add WinUAE to the
       development flow, a `sys/m68k/<board>/` directory with its `Config`,
       console and timer drivers, and a boot path (second stage
