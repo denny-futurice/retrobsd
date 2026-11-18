@@ -616,3 +616,26 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     turns the tty interrupt off while it stays in the handler.
 - **Consequences:** interrupt latency is the longest handler. Separate
   interrupt levels can come later with real `spl` levels (D16).
+
+## D34: 68030 caches stay off until M6
+- **Context:** the 68030 has a 256-byte instruction cache and a 256-byte
+  data cache, controlled by `CACR`. Without an MMU, every process runs at
+  the same fixed addresses, so the instruction cache goes stale whenever
+  the kernel writes code there: swap-in (the `u`/`u0` exchange in
+  `longjmp`), `exec` loading a program, and `ptrace` writes. The data
+  cache goes stale when a device writes memory (the Goldfish TTY's
+  `READ_BUFFER`, virtio in M4, Amiga chip DMA), and without an MMU only
+  the board's hardware (`CIIN`) can keep device registers out of it.
+  QEMU emulates neither cache: it only stores the `CACR` bits, so no cache
+  handling can be tested before M6 (D25).
+- **Decision:** the kernel turns both caches off early in `_start`, with one
+  `movec` that also clears them (`CI|CD`), instead of relying on the reset
+  value: a bootloader such as Kickstart may hand over with the caches on.
+  There is no cache flushing anywhere in the kernel.
+- **Consequences:** correct on any 68030 regardless of caching hardware,
+  at the cost of speed on real hardware. Cache management is an M6 task,
+  on WinUAE, where it can be tested: enable the instruction cache (with
+  burst fill), clear it after a process switch, at the end of
+  `exec_clear()` and after `ptrace` writes, and decide on the data cache
+  together with `CIIN` and device input. Supersedes the "cache enable"
+  item of the assessment (`01-assessment.md`, section 2).

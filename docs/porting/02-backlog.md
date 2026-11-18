@@ -308,8 +308,9 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       IPL 7, so handlers do not nest. Smoke tests `ttyrx`, `ttyrxopen`,
       `intrnest`; the path through `tty.c` to `read()` is checked when
       `init` runs (M4)
-- [ ] 10. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
-      so only a read-back is checked
+- [ ] 10. 68030 caches off (D34): `_start` clears and disables both
+      caches through `CACR`, whatever the bootloader left; enabling them
+      is an M6 task. Smoke test `cacr`: the enable bits read 0 after boot
 - [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
       done with task 8 (D32). Already done (D24): `ucall`/`ufetch`/
       `ustore` removed, `cpu_sysctl`
@@ -362,6 +363,11 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       and frame trimming (format A/B), FPU exception entry, `fsave`/
       `frestore` in the context switch and signal frame, and the PMMU
       code. QEMU's 68030 model emulates none of these
+- [ ] 68030 cache management (D34), on WinUAE: enable the instruction cache
+      with burst fill and clear it after a process switch (`longjmp`), at
+      the end of `exec_clear()` and after `ptrace` writes; decide on the
+      data cache together with `CIIN` for device registers and clears
+      after device input (TTY `READ_BUFFER`, virtio, chip DMA)
 - [ ] Prepare a real hardware board: the Amiga (D7, D25). Add WinUAE to the
       development flow, a `sys/m68k/<board>/` directory with its `Config`,
       console and timer drivers, and a boot path (second stage

@@ -48,7 +48,7 @@ QEMU is estimated at about 2-3 person-months.
   - `trap #0` syscall path, signals and `sigreturn`
   - context switch and `copyin`/`copyout`
   - `spl*` mapped onto the 68k IPL mask
-  - 68030 cache enable via `movec CACR`
+  - 68030 caches via `movec CACR`: off until M6 (D34)
 - **No-MMU model:** keep the fixed user region and whole-process swapping
   (`USER_DATA_START`/`END`), as RetroBSD does today. There is no inter-process
   protection, and wild pointers do not fault. Accepted; the 68030 PMMU remains
