@@ -38,6 +38,8 @@ _start:
         lea     u_end, %sp              /* kernel stack at the top of u */
         lea     vectors, %a0
         movec   %a0, %vbr
+        move.l  #0x0808, %d0            /* CACR: clear both caches, all off */
+        movec   %d0, %cacr              /* whatever the bootloader left (D34) */
 
         lea     __bss_start, %a0        /* clear BSS */
         lea     __bss_end, %a1
