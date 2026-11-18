@@ -91,8 +91,6 @@ __sysctl()
     sysctlfn *fn;
     int name [CTL_MAXNAME];
 
-    if (uap->new != NULL && ! suser())
-        return;
     /*
      * all top-level sysctl names are non-terminal
      */
@@ -105,6 +103,12 @@ __sysctl()
         u.u_error = error;
         return;
     }
+    /*
+     * cpu_sysctl() checks write permission itself: CPU_NLIST takes the
+     * symbol name as new data and must work for ordinary users (D35).
+     */
+    if (uap->new != NULL && name[0] != CTL_MACHDEP && ! suser())
+        return;
 
     switch (name[0]) {
     case CTL_KERN:

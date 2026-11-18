@@ -190,7 +190,8 @@ static const struct {
 
 /*
  * Machine-dependent sysctl: console device, errno messages and kernel
- * symbol addresses (D24).
+ * symbol addresses (D24).  __sysctl() does not check root for these, so a
+ * request that changes anything must call suser() itself (D35).
  */
 int
 cpu_sysctl (int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen)
