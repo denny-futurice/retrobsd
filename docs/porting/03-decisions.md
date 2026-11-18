@@ -639,3 +639,23 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `exec_clear()` and after `ptrace` writes, and decide on the data cache
   together with `CIIN` and device input. Supersedes the "cache enable"
   item of the assessment (`01-assessment.md`, section 2).
+
+## D35: Machine-dependent sysctl requests skip the root check
+- **Context:** `__sysctl()` in `sys/kernel/kern_sysctl.c` refuses any call
+  that passes new data (`new != NULL`) unless the caller is root, before it
+  looks at the name. `CPU_NLIST` (D24) is read-only but passes the symbol
+  name as new data, so libc's `knlist` fails with `EPERM` for everyone but
+  root. `ps`, `pstat`, `vmstat`, `iostat` and `fstat` are setgid, not
+  setuid (`rootfs.manifest`), so they do not work for ordinary users. The
+  PIC32 kernel has the same problem; it went unnoticed because RetroBSD on
+  PIC32 is normally used as root. A port where `ps` works only for root is
+  not acceptable.
+- **Decision:** `__sysctl()` skips the root check for `CTL_MACHDEP` and
+  leaves write permission to `cpu_sysctl()`. None of its three requests
+  writes anything: `CPU_CONSDEV` refuses new data with `EPERM`
+  (`sysctl_rdstruct`), `CPU_ERRMSG` ignores it and `CPU_NLIST` only reads
+  the name. A writable machine-dependent request added later must call
+  `suser()` itself. Every other top level keeps the root check.
+- **Consequences:** `ps` and the other `knlist` users work for ordinary
+  users, as far as the kernel is concerned. The check now runs after the
+  name is copied in, so a bad name pointer gives `EFAULT` before `EPERM`.

@@ -56,6 +56,10 @@
 #                 device's 128-byte buffer
 #        ttyrxopen gftty.c: the receive interrupt is off until open
 #        intrnest trap.c: a clock tick waits for the tty interrupt (D33)
+#        consdev  sysctl.c, kern_sysctl.c: CPU_CONSDEV from user mode
+#        errmsg   sysctl.c, kern_sysctl.c: CPU_ERRMSG from user mode
+#        nlist    sysctl.c, kern_sysctl.c: CPU_NLIST from user mode, as an
+#                 ordinary user (D35)
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
@@ -98,7 +102,8 @@ expected() {
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
-    sigframe|sigreturn|sigfpu|sigfault|uentry|icode|ttyrx|ttyrxopen|intrnest) echo "$1 ok" ;;
+    sigframe|sigreturn|sigfpu|sigfault|uentry|icode|ttyrx|ttyrxopen|intrnest|\
+    consdev|errmsg|nlist) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -130,6 +135,7 @@ run_qemu() {
 check_result() {
     name=$1 result=$2 halts=$3
     want=$(expected "$name")
+    [ -n "$want" ] || { echo "FAIL $name: no expected output in run.sh" >&2; return 1; }
     if [ -n "$verbose" ]; then
         echo "--- $name output"
         printf '%s\n' "$result" | tr -d '\r' | sed 's/^/  /'
@@ -171,7 +177,8 @@ run_test() {
     machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest"
+        sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
+        consdev errmsg nlist"
     class=plain
     case " startup cacr $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -189,6 +196,8 @@ run_test() {
         cflags="$KCFLAGS"
         case $name in ttyrx|ttyrxopen|intrnest)
             cflags="$cflags -DGFTTY_ENABLED -DCONS_MAJOR=UART_MAJOR -DCONS_MINOR=0" ;;
+        consdev|errmsg|nlist)
+            cflags="$cflags -DCONS_MAJOR=UART_MAJOR -DCONS_MINOR=0" ;;
         esac
         build ${CROSS}gcc $cflags -c "$top/sys/m68k/machdep.c" -o "$out/machdep.o"
         build ${CROSS}gcc $cflags -c "$here/ktest.c" -o "$out/ktest.o"
@@ -201,19 +210,20 @@ run_test() {
         build ${CROSS}gcc $cflags -c "$here/ttest.c" -o "$out/ttest.o"
         objs="$objs $out/trap.o $out/clock.o $out/kern_clock.o $out/ttest.o"
     fi
-    # The one kernel file, under sys/, a test checks.
+    # The kernel files, under sys/, a test checks.
     case $name in
     execstack|execclear) extra=kernel/exec_subr ;;
     pipe2) extra=kernel/sys_pipe ;;
     ptrace) extra=kernel/sys_process ;;
     sigframe|sigreturn|sigfpu|sigfault) extra=m68k/signal ;;
     ttyrx|ttyrxopen|intrnest) extra=m68k/gftty ;;
+    consdev|errmsg|nlist) extra="kernel/kern_sysctl m68k/sysctl" ;;
     *) extra= ;;
     esac
-    if [ -n "$extra" ]; then
-        build ${CROSS}gcc $cflags -c "$top/sys/$extra.c" -o "$out/${extra##*/}.o"
-        objs="$objs $out/${extra##*/}.o"
-    fi
+    for f in $extra; do
+        build ${CROSS}gcc $cflags -c "$top/sys/$f.c" -o "$out/${f##*/}.o"
+        objs="$objs $out/${f##*/}.o"
+    done
     build ${CROSS}gcc $cflags -c "$here/$name.c" -o "$out/$name.o"
     build ${CROSS}gcc $cflags -c "$crt" -o "$out/$name-crt.o"
     [ -z "$buildfail" ] && build ${CROSS}ld -T "$ld" -static $objs -o "$out/$name.elf"
@@ -242,7 +252,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        kernel}; do
+        consdev errmsg nlist kernel}; do
     run_test "$t" || status=1
 done
 exit $status

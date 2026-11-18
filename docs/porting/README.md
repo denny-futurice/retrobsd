@@ -58,7 +58,7 @@ The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/mac
 `ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
 `FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
-The trap tests (`ktrap` to `intrnest`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
+The trap tests (`ktrap` to `nlist`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
 `sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
 (`psignal()` calls the test's `got_signal()`), enters user mode with `rte`, and pushes
 hand-built exception frames for what QEMU does not raise (D25). The system call tests define
@@ -68,7 +68,10 @@ ptrace and signal tests also link the one kernel file they check and stub its ot
 `uentry` and `icode` return from `main()`, so `startup.S` runs their user code at
 `USER_DATA_START` as it runs process 1; `startup` and `cacr` halt QEMU themselves, since `main()` must not
 return into user mode. The tty tests link `sys/m68k/gftty.c` with `ttystub.h` in place of `tty.c`,
-and `run.sh` feeds them 300 bytes of console input on QEMU's stdin.
+and `run.sh` feeds them 300 bytes of console input on QEMU's stdin. The sysctl tests link
+`sys/kernel/kern_sysctl.c` and `sys/m68k/sysctl.c`; `sysctltest.h` defines the kernel symbols
+they refer to and runs a list of `__sysctl()` calls from user mode, with the arguments and
+buffers in the user region. A test with no expected output in `run.sh` fails.
 Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
 The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with the board
 `Makefile` (in place and incremental, like a developer build; the build log goes to
@@ -117,6 +120,9 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `ttyrx`    | console input by receive interrupt reaches `ttyinput()` in order, more than the device's 128-byte buffer (D33) | `ttyrx ok` |
 | `ttyrxopen` | the receive interrupt stays off until the first open | `ttyrxopen ok` |
 | `intrnest` | a clock tick waits until the tty interrupt handler returns (D33) | `intrnest ok` |
+| `consdev` | `sysctl` `CPU_CONSDEV` from user mode: the console device | `consdev ok` |
+| `errmsg`  | `sysctl` `CPU_ERRMSG` from user mode: messages, range, short buffer | `errmsg ok` |
+| `nlist`   | `sysctl` `CPU_NLIST` from user mode as an ordinary user (D35) | `nlist ok` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a

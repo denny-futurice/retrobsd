@@ -313,11 +313,14 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       is an M6 task. Smoke test `cacr`: with every cache bit set before
       `_start` runs, the enable bits read 0 after boot and the clear bits
       were written
-- [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
+- [x] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
       done with task 8 (D32). Already done (D24): `ucall`/`ufetch`/
       `ustore` removed, `cpu_sysctl`
       in `sys/m68k/sysctl.c`; its smoke test (`sysctl` from user mode for
-      each id) needs the syscall path of task 5. Depends on 3 and 5-8
+      each id) needs the syscall path of task 5. Depends on 3 and 5-8.
+      Done (D35): `__sysctl()` no longer requires root for
+      `CTL_MACHDEP`, so `CPU_NLIST` (`knlist` in `ps` and friends) works
+      for ordinary users. Smoke tests `consdev`, `errmsg`, `nlist`
 
 ## M4: Storage and filesystem (endianness work)
 - [ ] virtio-mmio block driver; add it to `devices.kconf` and switch the
