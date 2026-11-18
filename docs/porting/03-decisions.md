@@ -587,3 +587,32 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `USER_DATA_START`; smoke tests that do not want that must halt
   (`startup` writes the virt controller's halt command). The kernel boot
   test still ends at the D20 panic, before process 1 exists (D21).
+
+## D33: Console receive interrupt; interrupt handlers do not nest
+- **Context:** the Goldfish TTY raises PIC 1 source 32 (IPL 1) while its
+  128-byte input buffer holds data; `READ_BUFFER` copies input to memory.
+  The 68030 lets a higher interrupt level preempt a lower one, so the
+  clock (IPL 6) could interrupt a tty handler halfway through `ttyinput()`
+  and run callouts on the same queues. PIC32 interrupts did not nest, and
+  D16 has only two `spl` levels.
+- **Decision:**
+  - `gfttyintr()` reads all buffered input in 32-byte batches and passes
+    each byte to `ttyinput()`, as PIC32's `uartintr()` does. The first
+    open enables the interrupt at the PIC and the device; close leaves it
+    on, as on PIC32. Before that the console reads input by polling
+    (`gfttygetc`).
+  - `intr()` dispatches by PIC level and source with fixed cases, like the
+    clock; a handler table can come with virtio in M4.
+  - `intr()` raises the IPL to 7 before calling any handler, so handlers
+    never nest; the exception return restores the interrupted level.
+- **QEMU notes** (affect tests only):
+  - `goldfish_tty` does not tell the character backend when its buffer has
+    room again, so input past the first 128 bytes waits until QEMU's main
+    loop wakes for something else; idle, that can take a second. The clock
+    tick timer wakes it every tick, so the tests run the clock.
+  - While an interrupt is raised but masked, the TCG vCPU takes and drops
+    QEMU's global lock on every translated block, starving the main loop
+    and its timers; a clock alarm does not fire then. The `intrnest` test
+    turns the tty interrupt off while it stays in the handler.
+- **Consequences:** interrupt latency is the longest handler. Separate
+  interrupt levels can come later with real `spl` levels (D16).

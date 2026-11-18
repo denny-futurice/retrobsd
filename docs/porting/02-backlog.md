@@ -300,8 +300,14 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       IPL 0; `icode` is position-independent code in `startup.S` that
       builds `argv` on the user stack, execs `/sbin/init` and exits with
       the error. `stubs.c` is deleted. Smoke tests `uentry`, `icode`
-- [ ] 9. Goldfish TTY receive interrupt (PIC 1, source 32) feeding
-      `ttyinput`, so `read()` on the console works. Depends on 2
+- [x] 9. Goldfish TTY receive interrupt (PIC 1, source 32) feeding
+      `ttyinput`, so `read()` on the console works. Depends on 2.
+      Done (D33): `gfttyintr` passes all buffered input to `ttyinput` in
+      32-byte batches; the first open enables the interrupt, as PIC32's
+      `uartopen` does; `intr()` dispatches it and runs every handler at
+      IPL 7, so handlers do not nest. Smoke tests `ttyrx`, `ttyrxopen`,
+      `intrnest`; the path through `tty.c` to `read()` is checked when
+      `init` runs (M4)
 - [ ] 10. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
       so only a read-back is checked
 - [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);

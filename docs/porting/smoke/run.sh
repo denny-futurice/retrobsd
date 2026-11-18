@@ -50,13 +50,18 @@
 #        uentry   startup.S: main() returns into user mode at USER_DATA_START
 #                 with a clean SR, stack and registers
 #        icode    startup.S icode: execv /sbin/init -s, exit(errno) on failure
+#        ttyrx    gftty.c: console input by receive interrupt, past the
+#                 device's 128-byte buffer
+#        ttyrxopen gftty.c: the receive interrupt is off until open
+#        intrnest trap.c: a clock tick waits for the tty interrupt (D33)
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
 # the kernel; the trap tests also add trap.c, clock.c, kern_clock.c and
-# ttest.c; the exec, pipe, ptrace and signal tests also link the one
-# kernel file they test.  The kernel test
+# ttest.c; the exec, pipe, ptrace, signal and tty tests also link the one
+# kernel file they test, and the tty tests get QEMU input on stdin.  The
+# kernel test
 # builds sys/m68k/virt/unix.elf with the board Makefile (in place, like a
 # developer build; the products are gitignored) and boots it.
 set -e
@@ -91,7 +96,7 @@ expected() {
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
-    sigframe|sigreturn|sigfpu|sigfault|uentry|icode) echo "$1 ok" ;;
+    sigframe|sigreturn|sigfpu|sigfault|uentry|icode|ttyrx|ttyrxopen|intrnest) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -108,11 +113,13 @@ qemu-system-m68k --version | head -1
 # Most tests spin forever after printing, so stop QEMU after a short timeout;
 # the machdep tests and the kernel halt QEMU themselves.  stdin is /dev/null:
 # timeout runs QEMU outside the terminal's foreground group, and QEMU setting
-# tty modes on stdin would stop it with SIGTTOU.
+# tty modes on stdin would stop it with SIGTTOU.  A test that needs console
+# input gets the file $input instead.
 run_qemu() {
     rc=0
     timeout 5 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel "$@" \
-        -nographic -serial stdio -monitor none </dev/null 2>/dev/null || rc=$?
+        -nographic -serial stdio -monitor none <"${input:-/dev/null}" \
+        2>/dev/null || rc=$?
     echo "qemu exit status $rc"
 }
 
@@ -162,7 +169,7 @@ run_test() {
     machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        sigframe sigreturn sigfpu sigfault uentry icode"
+        sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -178,6 +185,9 @@ run_test() {
     fi
     if [ $class = machdep ] || [ $class = trap ]; then
         cflags="$KCFLAGS"
+        case $name in ttyrx|ttyrxopen|intrnest)
+            cflags="$cflags -DGFTTY_ENABLED -DCONS_MAJOR=UART_MAJOR -DCONS_MINOR=0" ;;
+        esac
         build ${CROSS}gcc $cflags -c "$top/sys/m68k/machdep.c" -o "$out/machdep.o"
         build ${CROSS}gcc $cflags -c "$here/ktest.c" -o "$out/ktest.o"
         objs="$objs $out/machdep.o $out/ktest.o"
@@ -195,6 +205,7 @@ run_test() {
     pipe2) extra=kernel/sys_pipe ;;
     ptrace) extra=kernel/sys_process ;;
     sigframe|sigreturn|sigfpu|sigfault) extra=m68k/signal ;;
+    ttyrx|ttyrxopen|intrnest) extra=m68k/gftty ;;
     *) extra= ;;
     esac
     if [ -n "$extra" ]; then
@@ -213,6 +224,12 @@ run_test() {
     prefill=
     bss=$(${CROSS}nm "$out/$name.elf" | awk '$3 == "smoke_bss" { print $1 }')
     [ -n "$bss" ] && prefill="-device loader,addr=0x$bss,data=0xdeadbeef,data-len=4"
+    input=
+    case $name in
+    ttyrx|ttyrxopen|intrnest)
+        input=$out/tty-input
+        awk 'BEGIN { for (i = 0; i < 300; i++) printf "%c", 97 + i % 26 }' >"$input" ;;
+    esac
     halts=
     [ "$name" = halt ] || [ $class = trap ] && halts=yes
     check_result "$name" "$(run_qemu "$out/$name.elf" $prefill)" $halts
@@ -222,7 +239,8 @@ status=0
 for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        sigframe sigreturn sigfpu sigfault uentry icode kernel}; do
+        sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
+        kernel}; do
     run_test "$t" || status=1
 done
 exit $status
