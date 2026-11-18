@@ -22,6 +22,8 @@ ENTRY(_start)
 KERNEL_DATA_START = 0x00000000;
 KERNEL_DATA_END   = 0x00080000;
 USIZE             = 4096;
+USER_DATA_START   = KERNEL_DATA_END;            /* process 1 entry, startup.S */
+USER_DATA_END     = USER_DATA_START + 0x40000;  /* its user stack top */
 
 u_end = KERNEL_DATA_END;
 u     = u_end - USIZE;

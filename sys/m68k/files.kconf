@@ -63,7 +63,6 @@ m68k/gftty.c                    optional gftty
 m68k/machdep.c                  standard
 m68k/mem.c                      standard
 m68k/signal.c                   standard
-m68k/stubs.c                    standard
 m68k/swap.c                     standard
 m68k/sysctl.c                   standard
 m68k/locore.S                   standard

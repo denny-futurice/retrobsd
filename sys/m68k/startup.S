@@ -49,10 +49,62 @@ _start:
         jsr     main
 
         /*
-         * main() returns in process 1, which then runs in user mode at
-         * USER_DATA_START, as on PIC32.  Entering user mode is M3 work;
-         * until then, halt.
+         * main() returns in process 1, which has icode at USER_DATA_START:
+         * enter it in user mode, as on PIC32.  The kernel stack starts
+         * again at the top of u, the user stack at USER_DATA_END, and no
+         * kernel value is left in a register.  SR 0 is user mode, IPL 0.
          */
-3:      stop    #0x2700
-        bra.s   3b
+        move.w  #0x2700, %sr
+        lea     u_end, %sp
+        lea     USER_DATA_END, %a0
+        move.l  %a0, %usp
+        clr.w   -(%sp)                  /* format 0 */
+        pea     USER_DATA_START         /* PC */
+        clr.w   -(%sp)                  /* SR */
+        moveq   #0, %d0
+        moveq   #0, %d1
+        moveq   #0, %d2
+        moveq   #0, %d3
+        moveq   #0, %d4
+        moveq   #0, %d5
+        moveq   #0, %d6
+        moveq   #0, %d7
+        movea.l %d0, %a0
+        movea.l %d0, %a1
+        movea.l %d0, %a2
+        movea.l %d0, %a3
+        movea.l %d0, %a4
+        movea.l %d0, %a5
+        movea.l %d0, %a6
+        rte
         .size   _start, . - _start
+
+/*
+ * User code for process 1, copied to USER_DATA_START by main(): exec
+ * /sbin/init, and exit with the error if that fails.  It is position
+ * independent, and builds argv on the user stack.  System calls follow
+ * D23: the arguments above a return address slot, the number in d0.
+ * main() patches initflags to "-s" for single user mode.
+ */
+        .globl  icode, initflags, icodeend
+icode:
+        clr.l   -(%sp)                  /* argv[2] */
+        pea     initflags(%pc)          /* argv[1] */
+        pea     etcinit+6(%pc)          /* argv[0]: "init" */
+        move.l  %sp, %a0
+        move.l  %a0, -(%sp)             /* execv(path, argv) */
+        pea     etcinit(%pc)
+        clr.l   -(%sp)
+        moveq   #11, %d0                /* SYS_execv */
+        trap    #0
+        move.l  %d0, -(%sp)             /* exit(errno) */
+        clr.l   -(%sp)
+        moveq   #1, %d0                 /* SYS_exit */
+        trap    #0
+etcinit:
+        .asciz  "/sbin/init"
+initflags:
+        .asciz  "-"                     /* space for options */
+        .space  10
+        .balign 2
+icodeend:
