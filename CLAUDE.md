@@ -58,8 +58,9 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   work so that any part can be reverted on its own:
   - implementation (`sys/`, `src/`, `tools/`, build files) in one commit;
   - documentation and tests (`docs/porting/`, smoke tests, this file) in a separate commit;
-  - code removals (PIC32 code, dead features, stubs replaced wholesale) in their own commit,
-    never mixed with new code.
+  - code removals (PIC32 code, dead features) in their own commit, never mixed with new code;
+  - stub removals go in the same commit as the implementation that replaces them, so that
+    every commit links.
 - `target.mk` and the kernel template `sys/m68k/Makefile.kconf` (moved from `sys/pic32/`) are
   converted to m68k GCC (D14), so the PIC32 build no longer works. `tools/kconfig` accepts
   `architecture "m68k"` and reads `sys/m68k/{files,devices,Makefile}.kconf`. The linker scripts
