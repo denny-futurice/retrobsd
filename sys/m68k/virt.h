@@ -25,6 +25,12 @@
 #define VIRT_GF_TTY_LEVEL       1               /* the console's receive interrupt */
 #define VIRT_GF_TTY_SRC         32
 
+/* virtio-mmio slot n interrupts on PIC 2 + n / 32, source n % 32 + 1 */
+#define VIRT_VIRTIO_SLOTS       128
+#define VIRT_VIRTIO_SIZE        0x200
+#define VIRT_VIRTIO_LEVEL(n)    (2 + (n) / 32)
+#define VIRT_VIRTIO_SRC(n)      ((n) % 32 + 1)
+
 /*
  * Goldfish PIC.  IRQ_PENDING reads the pending and enabled sources,
  * source n is bit n-1; ENABLE and DISABLE take such a mask.

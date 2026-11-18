@@ -15,6 +15,9 @@
 #   include <sys/tty.h>
 #   include <machine/gftty.h>
 #endif
+#ifdef VD_ENABLED
+#   include <machine/vd.h>
+#endif
 
 /*
  * locore.S uses these offsets.  C99 has no _Static_assert: a false
@@ -293,6 +296,10 @@ intr(struct trapframe *tf, int vec)
             gfttyintr(0);
             continue;
         }
+#endif
+#ifdef VD_ENABLED
+        if (vdintr(level, src))
+            continue;
 #endif
         printf("*** stray interrupt, level %d, source %d\n", level, src);
         VIRT_REG(GF_PIC_ADDR(level, GF_PIC_DISABLE)) = GF_PIC_BIT(src);

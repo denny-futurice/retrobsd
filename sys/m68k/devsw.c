@@ -30,6 +30,9 @@
 #ifdef GFTTY_ENABLED
 #   include <machine/gftty.h>
 #endif
+#ifdef VD_ENABLED
+#   include <machine/vd.h>
+#endif
 
 /*
  * Null routine; placed in insignificant entries
@@ -65,8 +68,13 @@ daddr_t nosize(dev_t dev)
     nosize,         noioctl,
 
 const struct bdevsw bdevsw[] = {
-{   /* 0 - disk: none until the virtio block driver (M4, D20) */
+{   /* 0 - vd: virtio block disk (D36) */
+#ifdef VD_ENABLED
+    vdopen,         vdclose,        vdstrategy,
+    vdsize,         vdioctl,
+#else
     NOBDEV
+#endif
 },
 {   /* 1 - unused (PIC32 sramc) */
     NOBDEV

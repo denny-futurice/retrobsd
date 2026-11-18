@@ -60,6 +60,8 @@ m68k/clock.c                    standard
 m68k/cons.c                     standard
 m68k/devsw.c                    standard
 m68k/gftty.c                    optional gftty
+m68k/vd.c                       optional vd
+m68k/disklabel.c                optional vd
 m68k/machdep.c                  standard
 m68k/mem.c                      standard
 m68k/signal.c                   standard
