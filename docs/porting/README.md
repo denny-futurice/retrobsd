@@ -66,7 +66,7 @@ their own small `sysent` table in place of `ttest.c`'s one-entry default, and ru
 code with the stack at `USER_DATA_END`, where `copyin` accepts the arguments. The exec, pipe,
 ptrace and signal tests also link the one kernel file they check and stub its other callees.
 `uentry` and `icode` return from `main()`, so `startup.S` runs their user code at
-`USER_DATA_START` as it runs process 1; `startup` halts QEMU itself, since its `main()` must not
+`USER_DATA_START` as it runs process 1; `startup` and `cacr` halt QEMU themselves, since `main()` must not
 return into user mode. The tty tests link `sys/m68k/gftty.c` with `ttystub.h` in place of `tty.c`,
 and `run.sh` feeds them 300 bytes of console input on QEMU's stdin.
 Build steps are logged to `$OUT/<test>-build.log`; a failed step fails the test.
@@ -80,6 +80,7 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `hello` | toolchain, linker script and QEMU boot            | `hello m68030`  |
 | `fpu`   | hardware 68881/68882 floating point (D12)         | `fpu ok`        |
 | `startup` | kernel `startup.S`: BSS clear, stack, VBR       | `startup ok`    |
+| `cacr`    | `startup.S` clears and disables both caches (D34) | `cacr ok`     |
 | `bootinfo` | `startup()` takes `physmem` from QEMU bootinfo | `bootinfo ok`   |
 | `kstring`  | `ffs`, string and memory routines              | `kstring ok`    |
 | `useraddr` | `baduaddr`/`badkaddr`, range checks without wraparound, `copyin`/`copyout`/`copyinstr` | `useraddr ok` |

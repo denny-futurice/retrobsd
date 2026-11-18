@@ -308,9 +308,11 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       IPL 7, so handlers do not nest. Smoke tests `ttyrx`, `ttyrxopen`,
       `intrnest`; the path through `tty.c` to `read()` is checked when
       `init` runs (M4)
-- [ ] 10. 68030 caches off (D34): `_start` clears and disables both
+- [x] 10. 68030 caches off (D34): `_start` clears and disables both
       caches through `CACR`, whatever the bootloader left; enabling them
-      is an M6 task. Smoke test `cacr`: the enable bits read 0 after boot
+      is an M6 task. Smoke test `cacr`: with every cache bit set before
+      `_start` runs, the enable bits read 0 after boot and the clear bits
+      were written
 - [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
       done with task 8 (D32). Already done (D24): `ucall`/`ufetch`/
       `ustore` removed, `cpu_sysctl`

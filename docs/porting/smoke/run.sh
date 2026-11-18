@@ -9,6 +9,8 @@
 # Tests: hello    toolchain, linker script and QEMU boot
 #        fpu      hardware floating point (D12)
 #        startup  kernel startup.S: BSS clear, stack, VBR
+#        cacr     startup.S: both caches cleared and off, whatever the
+#                 bootloader left (D34)
 #        bootinfo machdep.c startup(): physmem from the QEMU bootinfo
 #        kstring  machdep.c ffs, string and memory routines
 #        useraddr machdep.c address and range checks, copyin/copyout/copyinstr
@@ -91,7 +93,7 @@ expected() {
     case "$1" in
     hello) echo "hello m68030" ;;
     fpu) echo "fpu ok" ;;
-    startup) echo "startup ok" ;;
+    startup|cacr) echo "$1 ok" ;;
     bootinfo|kstring|useraddr|udelay|swtch|fpswtch) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
@@ -171,7 +173,7 @@ run_test() {
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest"
     class=plain
-    case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
+    case " startup cacr $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
     case " $traps " in *" $name "*) class=trap ;; esac
     cflags=$CFLAGS
@@ -236,7 +238,7 @@ run_test() {
 }
 
 status=0
-for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
+for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch fpswtch \
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
