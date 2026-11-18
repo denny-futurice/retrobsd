@@ -291,16 +291,22 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `sigreturn` refuses unknown flags, an odd PC and FPU frames
       `frestore` would reject. Stubs removed; `stubs.c` holds only
       `icode`. Smoke tests `sigframe`, `sigreturn`, `sigfpu`, `sigfault`
-- [ ] 8. Process 1 entry: m68k `icode`, and `startup.S` enters user mode at
+- [x] 8. Process 1 entry: m68k `icode`, and `startup.S` enters user mode at
       `USER_DATA_START` when `main` returns in process 1, as PIC32's reset
       code does. Smoke test: user code runs and its `exit` syscall is
-      handled. Running `init` itself is M4 (D21). Depends on 3 and 5
+      handled. Running `init` itself is M4 (D21). Depends on 3 and 5.
+      Done (D32): `startup.S` resets the kernel stack, sets `usp` to
+      `USER_DATA_END`, clears the registers and `rte`s to user mode at
+      IPL 0; `icode` is position-independent code in `startup.S` that
+      builds `argv` on the user stack, execs `/sbin/init` and exits with
+      the error. `stubs.c` is deleted. Smoke tests `uentry`, `icode`
 - [ ] 9. Goldfish TTY receive interrupt (PIC 1, source 32) feeding
       `ttyinput`, so `read()` on the console works. Depends on 2
 - [ ] 10. 68030 cache enable via `CACR`; QEMU does not emulate the caches,
       so only a read-back is checked
-- [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20).
-      Already done (D24): `ucall`/`ufetch`/`ustore` removed, `cpu_sysctl`
+- [ ] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
+      done with task 8 (D32). Already done (D24): `ucall`/`ufetch`/
+      `ustore` removed, `cpu_sysctl`
       in `sys/m68k/sysctl.c`; its smoke test (`sysctl` from user mode for
       each id) needs the syscall path of task 5. Depends on 3 and 5-8
 

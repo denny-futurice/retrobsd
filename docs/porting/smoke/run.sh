@@ -47,6 +47,9 @@
 #        sigreturn signal.c: user-mode signal round trip through sigreturn
 #        sigfpu   signal.c: FPU saved, reset for the handler, restored
 #        sigfault signal.c: bad sigcontexts refused, stack overflow SIGILL
+#        uentry   startup.S: main() returns into user mode at USER_DATA_START
+#                 with a clean SR, stack and registers
+#        icode    startup.S icode: execv /sbin/init -s, exit(errno) on failure
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
@@ -88,7 +91,7 @@ expected() {
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
-    sigframe|sigreturn|sigfpu|sigfault) echo "$1 ok" ;;
+    sigframe|sigreturn|sigfpu|sigfault|uentry|icode) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     esac
@@ -159,7 +162,7 @@ run_test() {
     machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        sigframe sigreturn sigfpu sigfault"
+        sigframe sigreturn sigfpu sigfault uentry icode"
     class=plain
     case " startup $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -219,7 +222,7 @@ status=0
 for t in ${1:-hello fpu startup bootinfo kstring useraddr udelay halt swtch fpswtch \
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
-        sigframe sigreturn sigfpu sigfault kernel}; do
+        sigframe sigreturn sigfpu sigfault uentry icode kernel}; do
     run_test "$t" || status=1
 done
 exit $status

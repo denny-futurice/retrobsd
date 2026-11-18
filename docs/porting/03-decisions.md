@@ -239,7 +239,7 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     a separate banner as the M2 proof.
 - **Consequences:** the M2 boot test exercises startup, the console,
   `printf`, table setup and `panic()` without a disk. M3 empties and
-  deletes `stubs.c`; M4 replaces the stubbed root and swap with the virtio
+  deletes `stubs.c` (done, D32); M4 replaces the stubbed root and swap with the virtio
   block device in `Config` and `devices.kconf`.
 
 ## D21: Running the first user process moves from M3 to M4
@@ -563,3 +563,27 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   or a new layout. The kernel copy is 424 bytes of kernel stack, mostly
   the FPU area, which fits in `u` (D28). The version check and the `fsave`
   frame sizes cannot run on QEMU (D25) and are rechecked in M6.
+
+## D32: Process 1 entry and `icode` in `startup.S`
+- **Context:** `main()` returns in process 1 after copying `icode` to
+  `USER_DATA_START` (`init_main.c`), and the reset code must then run it in
+  user mode, as PIC32's does. `icode` was an empty array in `stubs.c`.
+- **Decision:**
+  - `startup.S` handles the return from `main()`: IPL 7, kernel stack back
+    at `u_end`, `usp` at `USER_DATA_END`, every data and address register
+    cleared, then `rte` through a format 0 frame with SR 0 (user mode,
+    IPL 0) to `USER_DATA_START`.
+  - `icode`, `initflags` and `icodeend` are assembly in `startup.S`, and
+    `stubs.c` is deleted. The code is position independent (PC-relative
+    addresses) and builds `argv` on the user stack, so it needs no
+    relocation after the copy; system calls follow D23, and a failed
+    `execv` ends in `exit(errno)`. `initflags` is `"-"` plus spare bytes,
+    as on PIC32, for `main()`'s `"-s"` patch.
+  - `startup.S` includes no C headers, so `sys/m68k/virt/kernel.ld` defines
+    `USER_DATA_START`/`USER_DATA_END` next to its copy of
+    `KERNEL_DATA_END`; they must match `machparam.h`, which the `uentry`
+    test checks.
+- **Consequences:** a `main()` that returns now runs whatever is at
+  `USER_DATA_START`; smoke tests that do not want that must halt
+  (`startup` writes the virt controller's halt command). The kernel boot
+  test still ends at the D20 panic, before process 1 exists (D21).

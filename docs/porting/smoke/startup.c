@@ -4,6 +4,7 @@
  * pattern through QEMU's loader device before startup runs.
  */
 #define TTY ((volatile unsigned int *)0xff008000)
+#define CTRL_CMD ((volatile unsigned int *)0xff009004)  /* virt ctrl */
 
 unsigned smoke_bss[4];
 extern char u[], u_end[], vectors[];
@@ -40,5 +41,7 @@ int main(void)
         puts_("startup FAIL vbr\n");
     else
         puts_("startup ok\n");
-    return 0;
+    *CTRL_CMD = 2;                      /* halt: main must not return here */
+    for (;;)
+        continue;
 }
