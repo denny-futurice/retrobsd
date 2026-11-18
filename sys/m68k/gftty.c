@@ -2,10 +2,11 @@
  * Goldfish TTY driver for QEMU virt, the serial tty major (UART_MAJOR).
  * Based on sys/pic32/uart.c.
  *
- * Polled for now: output is written a byte at a time as soon as it is
- * queued, and input is only read by gfttygetc().  The receive interrupt
- * (Goldfish PIC 1, source 32) is wired up with the interrupt code in M3;
- * until then a read() on the tty sleeps forever.
+ * Output is written a byte at a time as soon as it is queued.  Input
+ * comes from the receive interrupt (Goldfish PIC 1, source 32), enabled
+ * by the first open; before that the console reads it by polling, with
+ * gfttygetc().  The device raises the interrupt while its input buffer
+ * holds data, and stops taking input when that buffer is full.
  *
  * Copyright (c) 1986 Regents of the University of California.
  * All rights reserved.  The Berkeley software License Agreement
@@ -56,6 +57,11 @@ gfttyopen(dev_t dev, int flag, int mode)
         ttychars(tp);
         tp->t_state = TS_ISOPEN | TS_CARR_ON;
         tp->t_flags = ECHO | XTABS | CRMOD | CRTBS | CRTERA | CTLECH | CRTKIL;
+
+        /* Enable the receive interrupt, as uart.c does on open. */
+        VIRT_REG(GF_PIC_ADDR(VIRT_GF_TTY_LEVEL, GF_PIC_ENABLE)) =
+            GF_PIC_BIT(VIRT_GF_TTY_SRC);
+        GFTTY_REG(GF_TTY_CMD) = GF_TTY_CMD_INT_ENABLE;
     }
     if ((tp->t_state & TS_XCLUDE) && u.u_uid != 0)
         return (EBUSY);
@@ -181,6 +187,29 @@ gfttygetc(dev_t dev)
     GFTTY_REG(GF_TTY_CMD) = GF_TTY_CMD_READ_BUFFER;
     splx(s);
     return c;
+}
+
+/*
+ * Receive interrupt: pass all buffered input to the tty, a batch at a
+ * time.  The device copies it into memory; with no MMU the kernel
+ * address of the buffer is its physical address.
+ */
+void
+gfttyintr(int unit)
+{
+    static char buf[32];
+    register struct tty *tp = &gfttyttys[unit];
+    u_int n, i;
+
+    while ((n = GFTTY_REG(GF_TTY_BYTES_READY)) != 0) {
+        if (n > sizeof(buf))
+            n = sizeof(buf);
+        GFTTY_REG(GF_TTY_DATA_PTR) = (unsigned) buf;
+        GFTTY_REG(GF_TTY_DATA_LEN) = n;
+        GFTTY_REG(GF_TTY_CMD) = GF_TTY_CMD_READ_BUFFER;
+        for (i = 0; i < n; i++)
+            ttyinput(buf[i], tp);
+    }
 }
 
 /*

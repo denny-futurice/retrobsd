@@ -18,6 +18,7 @@ int gfttyioctl(dev_t dev, u_int cmd, caddr_t addr, int flag);
 void gfttystart(struct tty *tp);
 void gfttyputc(dev_t dev, char c);
 char gfttygetc(dev_t dev);
+void gfttyintr(int unit);
 
 extern struct tty gfttyttys[NGFTTY];
 

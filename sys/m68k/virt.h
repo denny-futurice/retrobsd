@@ -22,6 +22,8 @@
  */
 #define VIRT_RTC_TICK_LEVEL     6               /* RTC 1, the clock tick (D27) */
 #define VIRT_RTC_TICK_SRC       1
+#define VIRT_GF_TTY_LEVEL       1               /* the console's receive interrupt */
+#define VIRT_GF_TTY_SRC         32
 
 /*
  * Goldfish PIC.  IRQ_PENDING reads the pending and enabled sources,

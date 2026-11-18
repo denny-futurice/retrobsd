@@ -11,6 +11,10 @@
 #include <sys/vmmeter.h>
 #include <machine/frame.h>
 #include <machine/virt.h>
+#ifdef GFTTY_ENABLED
+#   include <sys/tty.h>
+#   include <machine/gftty.h>
+#endif
 
 /*
  * locore.S uses these offsets.  C99 has no _Static_assert: a false
@@ -257,7 +261,9 @@ nosys()
 /*
  * Interrupt.  Levels 1 to 6 come from the Goldfish PICs (autovectors 25
  * to 30): run the handler of every pending source.  A source without a
- * handler is disabled, so that it cannot interrupt again.
+ * handler is disabled, so that it cannot interrupt again.  Handlers run
+ * with all interrupts masked, so they do not nest (D33); the return from
+ * the exception restores the interrupted level.
  */
 static void
 intr(struct trapframe *tf, int vec)
@@ -273,6 +279,7 @@ intr(struct trapframe *tf, int vec)
         printf("*** stray interrupt, vector %d\n", vec);
         return;
     }
+    splhigh();
     pending = VIRT_REG(GF_PIC_ADDR(level, GF_PIC_IRQ_PENDING));
     for (src = 1; pending; src++, pending >>= 1) {
         if (! (pending & 1))
@@ -281,6 +288,12 @@ intr(struct trapframe *tf, int vec)
             clockintr(tf);
             continue;
         }
+#ifdef GFTTY_ENABLED
+        if (level == VIRT_GF_TTY_LEVEL && src == VIRT_GF_TTY_SRC) {
+            gfttyintr(0);
+            continue;
+        }
+#endif
         printf("*** stray interrupt, level %d, source %d\n", level, src);
         VIRT_REG(GF_PIC_ADDR(level, GF_PIC_DISABLE)) = GF_PIC_BIT(src);
     }
