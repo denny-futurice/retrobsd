@@ -153,8 +153,8 @@ virtio-blk-device,drive=d0`. Disks are `vd0`, `vd1` in command-line order (D36);
 first MBR partition of `vd0` (`vd0a`) and swap the second (`vd0b`).
 
 QEMU loads the ELF and passes its bootinfo records (memory size, CPU) after `_end`. The
-console is the Goldfish TTY on stdio. Until the M4 root filesystem image exists, the kernel ends
-with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
+console is the Goldfish TTY on stdio. Without a disk holding a big-endian filesystem written by
+the m68k `fsutil` (M4, D37), the kernel ends with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
 (exit status 0). Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
 images in `$OUT` (default `/tmp/retrobsd-m68k-smoke`).
 

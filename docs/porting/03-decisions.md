@@ -699,3 +699,46 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   including at boot when the root is opened. Without a disk, or without a
   filesystem on it, the kernel still stops at the D20 root panic until the
   mount task.
+
+## D37: Big-endian on-disk and data formats, converted by the host tools
+- **Context:** the endianness audit (M4) found that every file the build
+  writes for the target assumes little-endian MIPS. `tools/fsutil` writes
+  the superblock, inodes, directories, indirect and free-list blocks
+  little-endian, through explicit byte helpers, open-coded shifts and raw
+  host `unsigned` arrays. `tools/elf2aout` reads the ELF headers and
+  writes the a.out header and symbol table in host order. The kernel and
+  userland read all of these natively. The MBR is little-endian by
+  definition, and the virtio interface is little-endian (D36). Some data
+  files are byte streams or already big-endian (zoneinfo, `bogdict`,
+  text), others are raw `struct` dumps committed as little-endian
+  binaries (`adventure.dat`, `fortunes.dat`, `cards.pck`, `retroImage`).
+  The structs in the dumps contain pointers and `long`s, so with the m68k
+  2-byte alignment (D17) their layout also changes, not only their byte
+  order.
+- **Decision:**
+  - Everything the kernel or userland reads natively is big-endian on
+    the target: the filesystem, a.out files and binary data files. The
+    kernel and userland keep reading native values; no byte swapping is
+    added on the target, except where a format is little-endian by
+    definition (MBR, virtio).
+  - The host tools convert. `fsutil` and `elf2aout` read and write target
+    values through explicit big-endian helpers, whatever the host's byte
+    order; the MBR keeps explicit little-endian helpers. The tools are
+    converted in place for m68k (D11, D14); they no longer produce PIC32
+    images.
+  - Raw struct dumps are not byte-swapped by hand. They are regenerated
+    for the target ABI in M6. Until then the games and programs that read
+    them (`adventure`, `fortune`, `monop`, `retroforth`) are left out of
+    the m68k build and the root image.
+  - Userland gets a `machine/endian.h` (`BYTE_ORDER == BIG_ENDIAN`), and
+    `htonl`/`htons`/`ntohl`/`ntohs` are the identity.
+  - `<sys/wait.h>` decodes the status with shifts and masks instead of
+    LSB-first bitfields. The kernel builds the status numerically
+    (`W_EXITCODE`, `W_STOPCODE`), and on big-endian GCC the `union wait`
+    bitfields start at the most significant bit, so every `W*` macro
+    would read the wrong bits.
+- **Consequences:** images built by older `fsutil` versions or for PIC32
+  are unreadable by the m68k kernel, and the reverse is also true. The
+  `fsutil` magic numbers stay numeric (`FSMAGIC1/2`); the bytes on disk
+  read `<<SF` instead of `FS<<`. The host-side `fsutil` keeps assuming a
+  32-bit `time_t` (`gcc -m32`), which is unrelated to byte order.

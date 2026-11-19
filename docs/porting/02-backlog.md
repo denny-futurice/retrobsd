@@ -327,34 +327,87 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `sys/m68k/disklabel.c`; add it to `devices.kconf` and switch the
       board `Config` root and swap from the D20 stub to it. Smoke tests
       `vdprobe`, `vdread`, `vdwrite`, `vdpart`
-- [ ] Endianness audit of `tools/fsutil` and the on-disk format
-- [ ] Big-endian ELF32 / EM_68K support in `tools/elf2aout`; m68k a.out magic
+- [x] Endianness audit (D37). Findings, each covered by a task below:
+      `fsutil` writes the filesystem little-endian; `check.c` and
+      `fsutil.c` read indirect blocks as 16-bit block numbers; the MBR is
+      read and written with host-order casts; `elf2aout` reads and writes
+      in host order; `sys/kernel/exec_elf.c` accepts only little-endian
+      MIPS; there is no `machine/endian.h`, and `htonl`/`htons` exist
+      only as MIPS assembly; `<sys/wait.h>` decodes the status through
+      LSB-first bitfields; `adventure.dat`, `fortunes.dat`, `cards.pck` and
+      `retroImage` are committed little-endian struct dumps. Checked and
+      unaffected: the kernel (apart from `exec_elf.c`), the `FSMAGIC`
+      constants, `dev_t` in device inodes, zoneinfo (`zic` and `ctime.c`
+      use explicit big-endian), `bogdict` and the text files, the libc
+      and libm IEEE unions (`isinf`, `isnan`, `modf`, `fmod` split a
+      64-bit integer with shifts), and `tar`, `compress` and `swab`
 - [ ] Audit struct layout (2-byte `int` alignment, D17): `stat`, `utmp`, a.out
       header, directory entries. Already checked: `dinode`, `fs`, `direct` and
       the a.out `exec` header have the same field offsets with 2- and 4-byte
-      alignment; comparing against the host build of `fsutil` is still open
-- [ ] Build a root filesystem image; `fsutil --check` passes. Rename the
-      disk nodes in `rootfs.manifest` and `etc/fstab` from `sd` to `vd`
-      (D36). Drop the
-      entries for programs disabled in `src/cmd/Makefile` from
-      `rootfs.manifest`: the native toolchain (D8) `/bin/{adb,aout,ar,as,cc,
-      cpp,lcc,lcpp,ld,nm,ranlib,scc,size,strip}`, `/libexec/{smallc,smlrc}`,
-      `/include/smallc` and the smallc examples, and the PIC32 hardware
-      programs (D18) (`fsutil` only warns on missing files)
-- [ ] Mount the root filesystem on QEMU; configure swap
+      alignment; still to do: compare against how `fsutil` and `elf2aout`
+      lay the fields out, before they are converted
+- [ ] `fsutil` writes big-endian (D37), converted in place:
+      - `superblock.c` `fs_read16/32`, `fs_write16/32` assemble big-endian;
+      - open-coded little-endian shifts in `block.c` (indirect free),
+        `create.c` (root and `lost+found` directories) and `inode.c`
+        (`fs_dirent_pack`/`unpack`) use the helpers;
+      - raw host `unsigned` arrays for free-list blocks (`block.c`
+        `fs_block_free`, `fs_block_alloc`) and indirect blocks (`inode.c`
+        bmap) are converted on read and write;
+      - fix the latent bug: `check.c` `scan_indirect_block` and
+        `fsutil.c` `print_*indirect_block` read indirect entries as 16-bit
+        numbers; make them 32-bit;
+      - the MBR (`superblock.c` partition table, `fsutil.c`
+        `--repartition`) uses explicit little-endian helpers.
+      Host tests: `--new`, `--add`, `--extract` round trip and `--check`;
+      the superblock magic reads `<<SF` on disk
+- [ ] Kernel mounts an `fsutil` image (smoke test): a small image with an
+      MBR, a root partition and a file; the kernel mounts `vd0a` as root
+      and reads the file back. This test is the one that proves the
+      `fsutil` and kernel formats match. Depends on the `fsutil` task;
+      replaces the D20 root panic
+- [ ] `elf2aout` for m68k (D37): read big-endian ELF32 with `EM_68K`;
+      write the a.out header and symbol table big-endian; set the m68k
+      a.out magic. In the kernel, `exec_elf.c` checks `ELFDATA2LSB` and
+      `EM_MIPS`: change it to `ELFDATA2MSB`/`EM_68K`, or drop the ELF exec
+      path (decide in the task). Host test: convert a smoke-test ELF and
+      check the header fields
 - [ ] Run a static `init` as a user process (fixed user region, no MMU),
       moved from M3 (D21): a freestanding test `/sbin/init` (smoke-test
       style, raw `trap #0` syscalls) on the root image, which opens the
       console and writes to it. The real `/sbin/init` follows with the M5
-      libc
+      libc. Depends on the mount task and `elf2aout`
+- [ ] Configure swap on `vd0b`; test that a process is swapped out and
+      back in. Depends on `init`
 
 ## M5: Libc and userland
 - [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline
+- [ ] Byte order for userland (D37): `machine/endian.h` (`BYTE_ORDER ==
+      BIG_ENDIAN`) in `sys/m68k`; `htonl`/`htons`/`ntohl`/`ntohs` as the
+      identity in `src/libc/m68k` (MIPS has `gen/htonl.S`, `gen/htons.S`)
+- [ ] `<sys/wait.h>` (D37): rewrite `WIFEXITED`, `WEXITSTATUS`,
+      `WTERMSIG`, `WIFSTOPPED`, ... with shifts and masks, and give
+      `union wait` its big-endian field order; users are `sh`, `csh`,
+      `cron`, `popen`, `system`. Test: a child's exit code and signal as
+      seen by the parent
 - [ ] Select the 64-bit integer runtime helpers from `src/libc/runtime/`
       (`divdi3`, `udivmoddi4`, ...); soft-float code is not used (D12)
 - [ ] Audit FP-dependent libc/libm code (`atof`, `ecvt`/`gcvt`, `printf` `%f`,
-      `libm`) for MIPS or soft-float assumptions; confirm hardware FP works
-- [ ] Build the reduced userland with `rootfs.manifest` adjusted
+      `libm`) for MIPS or soft-float assumptions; confirm hardware FP works.
+      Word order is already checked (D37): the IEEE unions split a 64-bit
+      integer with shifts and are byte-order neutral
+- [ ] Build the reduced userland and the full root filesystem image;
+      `fsutil --check` passes. Rename the disk nodes in `rootfs.manifest`
+      and `etc/fstab` from `sd` to `vd` (D36). Drop the entries for
+      programs disabled in `src/cmd/Makefile` from `rootfs.manifest`: the
+      native toolchain (D8) `/bin/{adb,aout,ar,as,cc,cpp,lcc,lcpp,ld,nm,
+      ranlib,scc,size,strip}`, `/libexec/{smallc,smlrc}`, `/include/smallc`
+      and the smallc examples, and the PIC32 hardware programs (D18)
+      (`fsutil` only warns on missing files). Leave out `adventure`,
+      `fortune`, `monop` (`src/games/Makefile` `SUBDIR`) and `retroforth`
+      (`src/cmd/Makefile` `SUBDIR`) with their manifest entries, data
+      files and man pages: their data files are little-endian (D37) and
+      come back in M6
 - [ ] Fix `-Werror` failures in `src/cmd` and `src/games` as they are built.
       Already seen: `src/libc/net/rcmd.c` (missing `sys/socket.h`; `net` is
       not built), `games/warp/sig.c` (`gtty`), `games/hunt/driver.c`
@@ -384,6 +437,14 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       development flow, a `sys/m68k/<board>/` directory with its `Config`,
       console and timer drivers, and a boot path (second stage
       bootloader)
+- [ ] Data files in target format (D37), then put `adventure`, `fortune`,
+      `monop` and `retroforth` back in the build and `rootfs.manifest`:
+      `adventure.dat` (`adventure glorkz`), `fortunes.dat` (`strfile`) and
+      `cards.pck` (`initdeck`) are raw struct dumps with pointers and
+      `long`s, and `retroImage` is raw 32-bit cells; all are committed
+      little-endian. Options: generate them on the target, or with host
+      generators that write the m68k layout explicitly; swap the
+      `retroImage` words at build time
 - [ ] Larger memory configuration and tuning beyond the 128 KB heritage limits
 - [ ] Performance improvements, measured on QEMU before adopting any change.
       Candidates:
