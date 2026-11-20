@@ -447,7 +447,13 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       the swap device are caught; `>=` in the bounds test is equivalent
 
 ## M5: Libc and userland
-- [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline
+- [x] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline
+      Done (D42): `src/startup-m68k/crt0.c`, `src/libc/m68k/{sys,gen}` and
+      the NetBSD string routines in `src/libc/m68k/string` (with the
+      `sys/m68k/asm.h` shim); `alloca` is `__builtin_alloca`. Smoke tests
+      `libcrt0`, `libstring`, `libsys`, `libsetjmp` and `libsignal`; every
+      mutant of the stubs, `jmp_buf` saves, mask handling, trampoline and
+      `crt0` offsets is caught
 - [ ] Byte order for userland (D37): `machine/endian.h` (`BYTE_ORDER ==
       BIG_ENDIAN`) in `sys/m68k`; `htonl`/`htons`/`ntohl`/`ntohs` as the
       identity in `src/libc/m68k` (MIPS has `gen/htonl.S`, `gen/htons.S`)

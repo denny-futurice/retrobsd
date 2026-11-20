@@ -25,7 +25,7 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   validation is M6 on WinUAE (Amiga). Do not integrate other emulators.
 - **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
   (toolchain/boot, FPU, the kernel `startup.S`, `machdep.c`, trap handling, the clock, system calls and
-  a whole-kernel build and boot, and a boot from an `fsutil` root image) on QEMU, plus a host test of `tools/fsutil`'s big-endian output
+  a whole-kernel build and boot, a boot from an `fsutil` root image, and the libc machine layer) on QEMU, plus a host test of `tools/fsutil`'s big-endian output
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - **Editor/clangd:** `sys/`, `src/` and `include/compile_flags.txt` plus the top `.clangd` make
   clangd parse for m68k against the tree's headers only (see docs/porting/README.md). Keep them in
@@ -67,8 +67,9 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   are `src/elf32-m68k.ld` (userland, linked at `USER_DATA_START`) and `sys/m68k/virt/kernel.ld`
   (vectors at 0, `u0`/`u` at the top of the kernel region). The kernel builds and boots
   (`make -C sys/m68k/virt`), with root on `vd0a` and swap on the memory disk `md0` (D41);
-  `elf2aout` converts big-endian m68k ELF (D39); `crt0` and libc
-  are still pending, so the top-level `make` does not yet build for m68k. User programs start with `sp` at `argc` (D30). `clang-config.mk` is kept as reference.
+  `elf2aout` converts big-endian m68k ELF (D39); `src/crt0.o` and `src/libc.a` build
+  (D42, the string routines are NetBSD's), but the rest of userland does not yet, so the
+  top-level `make` does not build for m68k. User programs start with `sp` at `argc` (D30). `clang-config.mk` is kept as reference.
 
 ## What this is (PIC32 system, reference)
 

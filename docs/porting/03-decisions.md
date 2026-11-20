@@ -837,3 +837,39 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   instead of disk I/O. Swap I/O is synchronous, as on PIC32, so D40's
   wait loop never runs for `md`. The size of the swap area depends on the
   machine's memory; on QEMU it is set with `-m`.
+
+## D42: m68k crt0 and libc machine layer
+- **Context:** M5 needs the machine-dependent part of libc: `crt0`, the
+  system call stubs, `setjmp`/`longjmp` and the signal trampoline. The
+  generic libc has no C versions of `bcmp`, `bcopy`, `bzero`, `ffs`,
+  `index`/`strchr`, `rindex`/`strrchr`, `strcmp`, `strlen` or `memmove`;
+  MIPS supplies them in assembly. GCC for m68k-linux returns pointers in
+  `a0` (and copies them to `d0`), and callers read `a0`.
+- **Decision:**
+  - The string routines are NetBSD's `common/lib/libc/arch/m68k/string/*.S`
+    (commit `f7ee448f3b88`), copied unchanged into `src/libc/m68k/string/`.
+    `sys/m68k/asm.h` is a subset of NetBSD's `<machine/asm.h>` and defines
+    `__SVR4_ABI__`, so pointer results are set in `a0` as well. `ffs.S` is
+    built with `-D_LIBC`, otherwise it is named `__ffssi2`. The `m68k`
+    archive is extracted last in `src/libc/Makefile`, so these objects
+    replace the `compat` C versions of the same name.
+  - System call stubs (`SYS.h`): the number goes in `d0` with `moveq` up
+    to 127 and `movel` above, then `trap #0` (D23); on carry they branch
+    to `cerror`, which stores `errno` and returns -1 in `d0` and `a0`.
+    `ptrace` clears `errno` first. `sigaction` pushes its three arguments
+    again with the trampoline as the 4th and a dummy return address below.
+    The trampoline calls `sigreturn(&sigcontext)` at `sp + 12` after the
+    handler returns (D31), and exits with the errno if that fails.
+    `vfork` stays a plain stub: libc's `SYS_vfork` is 2, which is `fork`.
+  - `jmp_buf` is 33 longs: `d2`-`d7`, `a2`-`a6`, `sp`, return address,
+    mask-saved flag, signal mask, `fp2`-`fp7` (12 bytes each). `longjmp`
+    turns 0 into 1. `setjmp`/`longjmp` save and restore the mask with
+    `sigprocmask`; `_setjmp`/`_longjmp` do not; `sigsetjmp` chooses.
+  - `crt0`'s `_start` passes `argc`, `argv` and `envp` (D30) to the C
+    `__start` as arguments, with a zero return address. `alloca` is
+    `<alloca.h>`'s `__builtin_alloca`; nothing is needed in libc.
+- **Consequences:** `src/crt0.o` and `src/libc.a` build for m68k. The
+  smoke tests `libcrt0`, `libstring`, `libsys`, `libsetjmp` and
+  `libsignal` run a C `/sbin/init` linked with them. The signal `code`
+  argument is only meaningful for hardware traps; after `kill` it is
+  stale, as in 2.11BSD.

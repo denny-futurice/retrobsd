@@ -26,7 +26,7 @@ sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil`, `rootfs`, `swap` and `mdswap` tests
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil`, `rootfs`, `swap`, `mdswap` and `lib*` tests
 also need a host `gcc` for the tools, and `fsutil` a host C compiler for its reader (`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
@@ -145,6 +145,11 @@ on the memory disk `md0` (D41); the `swap` test relinks it with swap on `vd0b`.
 | `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, converted by `elf2aout`), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
 | `swap`     | as `rootfs`, with `/sbin/init` from `swapinit.c`: a parent and a child take turns over two pipes, so each is swapped out and in at every turn while it sleeps, and both check patterns in their data, bss and stack; the kernel is relinked to swap on `vd0b`, and afterwards all six patterns are on that partition and the image passes `fsutil --check` (D40) | `swap ok`, exit status 0 |
 | `mdswap`   | as `swap`, on the board kernel, which swaps on `md0` (D41); none of the patterns reach `vd0b` | `swap ok`, exit status 0 |
+| `libcrt0`  | a C `/sbin/init` linked with `src/crt0.o` and `src/libc.a` (D42), as are the next four: `argc`, `argv`, the environment and `__progname` as process 1 and after an `execve`, and `main`'s result as the exit status | `libcrt0 ok`, exit status 0 |
+| `libstring` | the NetBSD string routines: every alignment and length up to 70, overlapping moves both ways, pointer results in `a0` as well as `d0` | `libstring ok`, exit status 0 |
+| `libsys`   | the system call stubs: `errno` and -1 (also as a pointer), numbers above 127, `pipe`, `sbrk`/`_brk`, `ptrace`'s cleared `errno`; the image then passes `fsutil --check` | `libsys ok`, exit status 0 |
+| `libsetjmp` | `setjmp`/`_setjmp` and their `longjmp`s restore `d2`-`d7`, `a2`-`a6` and `fp2`-`fp7`, turn 0 into 1, and restore the signal mask or not; `sigsetjmp` both ways | `libsetjmp ok`, exit status 0 |
+| `libsignal` | `sigaction` and the trampoline (D31): handler arguments and mask, every register back after a handler that clobbers them, `oact`, `SIG_IGN`, invalid signals | `libsignal ok`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's

@@ -89,6 +89,16 @@
 #                 partition afterwards
 #        mdswap   the same with the board kernel, which swaps on md0 (D41);
 #                 none of the patterns reach vd0b
+#        libcrt0  crt0 (D30): argc, argv, environment and __progname, as
+#                 init and after an exec, and main's result passed to exit
+#        libstring the NetBSD string routines (D42): results for every
+#                 alignment, overlaps, and pointers in a0 as well as d0
+#        libsys   the system call stubs (D23): cerror, errno, move.l numbers,
+#                 pipe, _brk, ptrace
+#        libsetjmp setjmp/longjmp (D42): callee-saved registers, FPU
+#                 included, return values and the signal mask
+#        libsignal sigaction and the trampoline (D31): handler arguments and
+#                 mask, every register back after the handler
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -135,6 +145,7 @@ expected() {
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
     swap|mdswap) echo "swap ok" ;;
+    libcrt0|libstring|libsys|libsetjmp|libsignal) echo "$1 ok" ;;
     esac
 }
 
@@ -210,7 +221,8 @@ fsutil_clean() {
 
 # Root image tests.  prep_root builds the kernel, the tools and /sbin/init
 # from source $2 (assembler or C, through elf2aout) in $d/root, and sets d
-# and log.  make_image makes $d/disk.img: an MBR, a 2 MB root and a 1 MB
+# and log; with $3 = libc, init is linked with src/crt0.o and src/libc.a,
+# which it builds in place.  make_image makes $d/disk.img: an MBR, a 2 MB root and a 1 MB
 # swap partition, extended to its full 1 + 3072 KB (fsutil writes only up
 # to the root).  The root holds /dev/console, /sbin/init and the files of
 # $d/root named by the manifest lines given.  boot_image boots it, expects
@@ -220,10 +232,17 @@ prep_root() {
     d=$out/$1 log=$out/$1-build.log
     rm -rf "$d" && mkdir -p "$d/root/sbin"
     build_kernel "$1" || return 1
+    if [ "$3" = libc ]; then
+        libc="-I$top/include" crt0=$top/src/crt0.o libs="-L$top/src -lc"
+    else
+        libc= crt0= libs=
+    fi
     if ! { make -C "$top/tools/fsutil" &&
            make -C "$top/tools/elf2aout" &&
-           ${CROSS}gcc $CFLAGS -c "$here/$2" -o "$d/init.o" &&
-           ${CROSS}ld -T "$top/src/elf32-m68k.ld" "$d/init.o" -o "$d/init.elf" &&
+           { [ -z "$crt0" ] || { make -C "$top/src/startup-m68k" &&
+                                 make -C "$top/src/libc"; }; } &&
+           ${CROSS}gcc $CFLAGS $libc -c "$here/$2" -o "$d/init.o" &&
+           ${CROSS}ld -T "$top/src/elf32-m68k.ld" $crt0 "$d/init.o" $libs -o "$d/init.elf" &&
            "$top/tools/elf2aout/elf2aout" "$d/init.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
         echo "FAIL $1: build failed, see $log" >&2
         tail -20 "$log" >&2
@@ -258,6 +277,14 @@ run_rootfs() {
       expected rootfs; } >"$d/root/etc/motd"
     make_image rootfs 'dir /etc' 'file /etc/motd' || return 1
     boot_image rootfs
+}
+
+# libc tests: a C /sbin/init with crt0 and libc (libtest.h); libsys
+# makes and removes a directory, so the image is checked afterwards too.
+run_libc() {
+    prep_root "$1" "$1.c" libc || return 1
+    make_image "$1" || return 1
+    boot_image "$1"
 }
 
 # The six patterns swapinit.c's first() and step() make, 16 bytes each,
@@ -433,6 +460,7 @@ run_test() {
     [ "$name" = rootfs ] && { run_rootfs; return; }
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
+    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -527,7 +555,8 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
+        libcrt0 libstring libsys libsetjmp libsignal}; do
     run_test "$t" || status=1
 done
 exit $status
