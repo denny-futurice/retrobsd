@@ -38,9 +38,15 @@ swap (size_t blkno, size_t coreaddr, int count, int rdflg)
         bp->b_blkno = blkno;
         bp->b_addr = (caddr_t) coreaddr;
         (*bdevsw[major(swapdev)].d_strategy) (bp);
+        /*
+         * Wait without a context switch (D40): swtch() exchanges u and
+         * u0, which may be the transfer's source or destination, and in
+         * newproc() u.u_procp is the child.  idle() takes interrupts.
+         */
         s = splbio();
         while ((bp->b_flags & B_DONE) == 0)
-            sleep ((caddr_t)bp, PSWP);
+            idle();
+        noproc = 0;
         splx (s);
         if ((bp->b_flags & B_ERROR) || bp->b_resid)
             panic ("hard err: swap");
