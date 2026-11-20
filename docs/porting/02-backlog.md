@@ -341,12 +341,19 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       use explicit big-endian), `bogdict` and the text files, the libc
       and libm IEEE unions (`isinf`, `isnan`, `modf`, `fmod` split a
       64-bit integer with shifts), and `tar`, `compress` and `swab`
-- [ ] Audit struct layout (2-byte `int` alignment, D17): `stat`, `utmp`, a.out
-      header, directory entries. Already checked: `dinode`, `fs`, `direct` and
-      the a.out `exec` header have the same field offsets with 2- and 4-byte
-      alignment; still to do: compare against how `fsutil` and `elf2aout`
-      lay the fields out, before they are converted
-- [ ] `fsutil` writes big-endian (D37), converted in place:
+- [x] Audit struct layout (2-byte `int` alignment, D17). Offsets taken
+      from `m68k-linux-gnu-gcc` match what the host tools write, field by
+      field: `struct fs` (all 32-bit, `fs_magic2` at 1020, 1024 bytes),
+      `fblk` (count then 200 block numbers), `dinode` (two 16-bit fields,
+      then 32-bit, 64 bytes), `direct` (32/16/16 then name) and the a.out
+      `exec` header (eight 32-bit words, same in `elf2aout`). `stat` and
+      `utmp` have no padding and are only written on the target. Only the
+      byte order changes. Found, not used by the build: `elf2aout -s`
+      writes 4.4BSD `nlist` records, while libc `nlist()` parses
+      RetroBSD's compact records (length, type, little-endian value,
+      name) and `include/nlist.h` declares a third layout; executables
+      carry no symbols (`a_syms` is 0)
+- [x] `fsutil` writes big-endian (D37), converted in place:
       - `superblock.c` `fs_read16/32`, `fs_write16/32` assemble big-endian;
       - open-coded little-endian shifts in `block.c` (indirect free),
         `create.c` (root and `lost+found` directories) and `inode.c`
@@ -360,7 +367,17 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       - the MBR (`superblock.c` partition table, `fsutil.c`
         `--repartition`) uses explicit little-endian helpers.
       Host tests: `--new`, `--add`, `--extract` round trip and `--check`;
-      the superblock magic reads `<<SF` on disk
+      the superblock magic reads `<<SF` on disk.
+      Done: helpers `fs_get32/16`, `fs_put32/16`, `mbr_get32/put32` in
+      `bsdfs.h`; `fs_read_block32`/`fs_write_block32` convert free-list
+      and indirect blocks; `fs_dirhdr_read`/`write` replace the raw
+      directory header structs. Also fixed `print_triple_indirect_block`,
+      which called the single-indirect printer. Smoke test `fsutil`
+      (host only): `--check` must print no errors, and the independent
+      big-endian reader `smoke/bsdread.c` reads a 66 MB file whose blocks
+      pass 65535 and follows `..` of `/` and `lost+found`. Mutation-checked:
+      each helper reversed, raw block and header I/O, the 16-bit indirect
+      scan and the single-byte `..` inode all fail it
 - [ ] Kernel mounts an `fsutil` image (smoke test): a small image with an
       MBR, a root partition and a file; the kernel mounts `vd0a` as root
       and reads the file back. This test is the one that proves the
@@ -370,7 +387,9 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       write the a.out header and symbol table big-endian; set the m68k
       a.out magic. In the kernel, `exec_elf.c` checks `ELFDATA2LSB` and
       `EM_MIPS`: change it to `ELFDATA2MSB`/`EM_68K`, or drop the ELF exec
-      path (decide in the task). Host test: convert a smoke-test ELF and
+      path (decide in the task). The `-s` symbol-file mode is not used by
+      the build and its format does not match libc `nlist()`: leave it
+      unconverted or remove it. Host test: convert a smoke-test ELF and
       check the header fields
 - [ ] Run a static `init` as a user process (fixed user region, no MMU),
       moved from M3 (D21): a freestanding test `/sbin/init` (smoke-test

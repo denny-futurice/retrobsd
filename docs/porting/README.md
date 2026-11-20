@@ -26,7 +26,8 @@ sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. `gdb-multiarch` is only needed for debugging. Verified versions are listed in
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `fsutil` test also needs a host C compiler
+(`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
 ## Editor setup (clangd)
@@ -133,6 +134,7 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `vdread`  | reads finish by interrupt, multi-block, queued, a device error gives `EIO`, EOF at the end of the disk | `vdread ok` |
 | `vdwrite` | writes reach the disk through the raw disk and a partition; sector 0 and a read-only disk refuse them | `vdwrite ok` |
 | `vdpart`  | MBR partitions (`disklabel.c`): entries, offsets, EOF and truncation at the end, missing partitions, a disk without an MBR | `vdpart ok` |
+| `fsutil`   | host only, no QEMU: `tools/fsutil` writes a big-endian filesystem (D37) that `--check` passes cleanly and `bsdread.c`, an independent reader, reads back past block 65535 and through `..` | `PASS fsutil` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a

@@ -66,6 +66,9 @@
 #        vdwrite  vd.c: writes reach the disk; sector 0 and a read-only
 #                 disk refuse them
 #        vdpart   vd.c, disklabel.c: MBR partitions, offsets and bounds
+#        fsutil   host test, no QEMU: tools/fsutil writes a big-endian file
+#                 system (D37) that --check passes and the independent reader
+#                 bsdread.c reads back, past block 65535 and through ".."
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
@@ -191,6 +194,53 @@ make_disks() {
         >"$out/diska.dbg"
 }
 
+# fsutil: a 100 MB root partition holding a directory of 60 files, a
+# 3 MB file and a 66 MB file whose blocks go past 65535.  --add names the
+# file in the image by the path it is given, so it runs in $d.
+run_fsutil() {
+    log=$out/fsutil.log d=$out/fsutil
+    rm -rf "$d" && mkdir -p "$d/src/etc/sub"
+    if ! make -C "$top/tools/fsutil" >"$log" 2>&1 ||
+       ! ${HOSTCC:-cc} -O -Wall -Werror -o "$d/bsdread" "$here/bsdread.c" >>"$log" 2>&1; then
+        echo "FAIL fsutil: build failed, see $log" >&2
+        tail -20 "$log" >&2
+        return 1
+    fi
+    # A byte-order bug can make fsutil loop, so every step has a time limit.
+    fsutil="timeout 60 $top/tools/fsutil/fsutil"
+    echo hello >"$d/src/etc/motd"
+    for i in $(seq 1 60); do echo $i >"$d/src/etc/sub/file$i"; done
+    head -c 3000000 /dev/urandom >"$d/src/big"
+    head -c 66000000 /dev/urandom >"$d/huge"
+    { $fsutil --repartition=fs=100M:swap=2M "$d/disk.img" &&
+      $fsutil --new --partition=1 "$d/disk.img" "$d/src" &&
+      (cd "$d" && $fsutil --add --partition=1 disk.img huge); } >>"$log" 2>&1 ||
+        { echo "FAIL fsutil: creating the image failed, see $log" >&2; return 1; }
+    # A clean check prints the five phase headers and the summary only.
+    $fsutil --check --partition=1 "$d/disk.img" >"$d/check.out" 2>&1 || true
+    if [ "$(grep -cv -e '^\*\* Phase [1-5] - ' \
+            -e '^[0-9]* files [0-9]* blocks [0-9]* free$' "$d/check.out")" != 0 ] ||
+       [ "$(wc -l <"$d/check.out")" != 6 ]; then
+        echo "FAIL fsutil: --check found errors:" >&2
+        head -20 "$d/check.out" >&2
+        return 1
+    fi
+    r="timeout 60 $d/bsdread"
+    $r "$d/disk.img" /huge >"$d/huge.out" 2>"$d/huge.err" &&
+        cmp -s "$d/huge" "$d/huge.out" ||
+        { echo "FAIL fsutil: /huge read back differs" >&2; return 1; }
+    max=$(awk '/^maxblk/ { print $2 }' "$d/huge.err")
+    [ "${max:-0}" -gt 65535 ] ||
+        { echo "FAIL fsutil: /huge ends at block $max, not past 65535" >&2; return 1; }
+    $r "$d/disk.img" /big 2>/dev/null | cmp -s "$d/src/big" - ||
+        { echo "FAIL fsutil: /big read back differs" >&2; return 1; }
+    got=$($r "$d/disk.img" /../lost+found/../etc/sub/file60 2>/dev/null) || true
+    [ "$got" = 60 ] ||
+        { echo "FAIL fsutil: /../lost+found/../etc/sub/file60 gave '$got'" >&2; return 1; }
+    rm -rf "$d"
+    echo "PASS fsutil"
+}
+
 # Run one build step, logging to $log.  run_test is called in an || list,
 # where set -e does not apply, so failures are recorded in $buildfail.
 build() {
@@ -200,6 +250,7 @@ build() {
 run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
+    [ "$name" = fsutil ] && { run_fsutil; return; }
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -293,7 +344,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart kernel}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart fsutil kernel}; do
     run_test "$t" || status=1
 done
 exit $status
