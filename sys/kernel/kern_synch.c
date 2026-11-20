@@ -402,8 +402,13 @@ swtch()
 #ifdef UCB_METER
     cnt.v_swtch++;
 #endif
-    /* If not the idle process, resume the idle process. */
-    if (u.u_procp != &proc[0]) {
+    /*
+     * If not the idle process, resume the idle process.  Test whose u
+     * area is in u, not u.u_procp: newproc() points u.u_procp at the
+     * child while proc 0 swaps it out at boot, and that swap I/O may
+     * sleep when the disk is interrupt driven (D38).
+     */
+    if (proc[0].p_addr != (size_t) &u) {
         if (setjmp (&u.u_rsave)) {
             /* Returned from swapper to user process. */
             return;

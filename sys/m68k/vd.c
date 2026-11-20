@@ -8,6 +8,11 @@
  * it.  The device is virtio 1.0, so every register, ring entry and
  * configuration value is little-endian.
  *
+ * Any byte count is accepted, as by PIC32's sd: swap moves the u area and
+ * segments of arbitrary size.  The device moves whole sectors, so a
+ * partial last sector goes through a bounce buffer, zero padded on
+ * write; on read only the requested bytes are copied out.
+ *
  * Minor numbers, as for PIC32's sd:
  *   0     vd0   the whole disk
  *   1-4   vd0a  MBR partitions (sys/m68k/disklabel.c)
@@ -31,7 +36,7 @@
 #define vdunit(dev)     ((minor(dev) & 8) >> 3)
 #define vdpart(dev)     (minor(dev) & 7)
 
-#define QSIZE           4               /* descriptors: header, data, status */
+#define QSIZE           4               /* header, sectors, partial sector, status */
 
 #define VD_READ(du, off)        virtio_read((du)->base + (off))
 #define VD_WRITE(du, off, v)    virtio_write((du)->base + (off), v)
@@ -61,9 +66,22 @@ struct vdisk {
     } used __attribute__((aligned(4)));
     struct virtio_blk_req req;
     u_char  status;
+    u_char  tail[VIRTIO_BLK_SECTOR];    /* bounce for a partial last sector */
 };
 
 static struct vdisk vddrives[NVD];
+
+/*
+ * Fill descriptor n, chained to n + 1.
+ */
+static void
+vddesc(struct vdisk *du, int n, void *addr, u_int len, int flags)
+{
+    du->desc[n].addr_lo = le32((u_int) addr);
+    du->desc[n].len = le32(len);
+    du->desc[n].flags = le16(VRING_DESC_F_NEXT | flags);
+    du->desc[n].next = le16(n + 1);
+}
 
 /*
  * Hand the first queued buffer to the device.  Called at splbio.
@@ -72,6 +90,8 @@ static void
 vdstart(struct vdisk *du)
 {
     struct buf *bp = du->actf;
+    u_int whole, part;
+    int n, dataflag;
 
     if (bp == 0 || du->active)
         return;
@@ -91,19 +111,22 @@ vdstart(struct vdisk *du)
     du->req.sector_hi = 0;
     du->status = 0xff;
 
-    du->desc[0].addr_lo = le32((u_int) &du->req);
-    du->desc[0].len = le32(sizeof(du->req));
-    du->desc[0].flags = le16(VRING_DESC_F_NEXT);
-    du->desc[0].next = le16(1);
-    du->desc[1].addr_lo = le32((u_int) bp->b_addr);
-    du->desc[1].len = le32(bp->b_bcount);
-    du->desc[1].flags = le16(VRING_DESC_F_NEXT |
-        ((bp->b_flags & B_READ) ? VRING_DESC_F_WRITE : 0));
-    du->desc[1].next = le16(2);
-    du->desc[2].addr_lo = le32((u_int) &du->status);
-    du->desc[2].len = le32(1);
-    du->desc[2].flags = le16(VRING_DESC_F_WRITE);
-    du->desc[2].next = 0;
+    whole = bp->b_bcount & ~(VIRTIO_BLK_SECTOR - 1);
+    part = bp->b_bcount & (VIRTIO_BLK_SECTOR - 1);
+    dataflag = (bp->b_flags & B_READ) ? VRING_DESC_F_WRITE : 0;
+    n = 0;
+    vddesc(du, n++, &du->req, sizeof(du->req), 0);
+    if (whole)
+        vddesc(du, n++, bp->b_addr, whole, dataflag);
+    if (part) {
+        if (! (bp->b_flags & B_READ)) {
+            bcopy(bp->b_addr + whole, du->tail, part);
+            bzero(du->tail + part, VIRTIO_BLK_SECTOR - part);
+        }
+        vddesc(du, n++, du->tail, VIRTIO_BLK_SECTOR, dataflag);
+    }
+    vddesc(du, n, &du->status, 1, VRING_DESC_F_WRITE);
+    du->desc[n].flags &= ~le16(VRING_DESC_F_NEXT);
 
     du->avail.ring[du->avail_idx % QSIZE] = 0;
     du->avail_idx++;
@@ -119,6 +142,7 @@ vdintr(int level, int src)
 {
     struct vdisk *du;
     struct buf *bp;
+    u_int whole;
     int unit, found = 0;
 
     for (unit = 0; unit < NVD; unit++) {
@@ -138,6 +162,9 @@ vdintr(int level, int src)
 #endif
             if (du->status == VIRTIO_BLK_S_OK) {
                 bp->b_resid = 0;
+                whole = bp->b_bcount & ~(VIRTIO_BLK_SECTOR - 1);
+                if ((bp->b_flags & B_READ) && whole != bp->b_bcount)
+                    bcopy(du->tail, bp->b_addr + whole, bp->b_bcount - whole);
             } else {
                 bp->b_error = EIO;
                 bp->b_flags |= B_ERROR;
@@ -163,9 +190,10 @@ vdstrategy(struct buf *bp)
         bp->b_error = ENXIO;
         goto bad;
     }
-    if (bp->b_bcount % VIRTIO_BLK_SECTOR) {
-        bp->b_error = EINVAL;
-        goto bad;
+    if (bp->b_bcount == 0) {
+        bp->b_resid = 0;
+        biodone(bp);
+        return;
     }
     /*
      * Make sure the transfer is within the partition: return an EOF
