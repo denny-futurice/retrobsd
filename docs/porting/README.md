@@ -26,7 +26,7 @@ sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil`, `rootfs` and `swap` tests
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil`, `rootfs`, `swap` and `mdswap` tests
 also need a host `gcc` for the tools, and `fsutil` a host C compiler for its reader (`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
@@ -55,7 +55,7 @@ the port will use.
 The tests from `startup` on link with the kernel's `sys/m68k/startup.S`, `sys/m68k/locore.S`
 and `sys/m68k/virt/kernel.ld` instead of `crt.S` and `l.ld`; `run.sh` pre-fills a test's
 `smoke_bss` array through QEMU's loader device so a missing BSS clear is caught.
-The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/machdep.c`, with
+The machdep tests (`bootinfo` to `mdio`) also link the kernel's `sys/m68k/machdep.c`, with
 `ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
 `FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
@@ -85,7 +85,8 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 `$OUT/kernel-build.log`) and boots it without a disk. Without a root filesystem (D20) the kernel panics, and
 `panic()` halts QEMU, so the test expects the panic message and exit status 0.
 The `rootfs` test boots the same kernel with a disk image that `tools/fsutil` builds (MBR, 2 MB
-root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
+root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`. The board kernel swaps
+on the memory disk `md0` (D41); the `swap` test relinks it with swap on `vd0b`.
 
 | Test    | Checks                                            | Expected output |
 |---------|---------------------------------------------------|-----------------|
@@ -100,6 +101,7 @@ root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
 | `halt`     | `boot(RB_HALT)` stops QEMU via `virt-ctrl`     | `halted`, exit status 0 |
 | `swtch`    | `setjmp`/`longjmp` switch to the process in `u0` and back: `u`/`u0` and `p_addr` exchanged | `swtch ok` |
 | `fpswtch`  | FPU registers and FPCR follow each process across the switch; `savefpu()` (D28) | `fpswtch ok` |
+| `mdio`    | the memory disk (`md.c`, D41) covers the RAM from `USER_DATA_END` to the bootinfo memory size, copies any byte count both ways at the right place and at once, and gives EOF, truncation and `EINVAL` at its end | `mdio ok` |
 | `ktrap`    | kernel-mode exception dumps registers, panics  | `panic: kernel trap` |
 | `uill`     | user illegal instruction: `SIGILL`, trap frame | `uill ok`       |
 | `upriv`    | user privileged instruction: `SIGILL`          | `upriv ok`      |
@@ -141,7 +143,8 @@ root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
 | `fsutil`   | host only, no QEMU: `tools/fsutil` writes a big-endian filesystem (D37) that `--check` passes cleanly and `bsdread.c`, an independent reader, reads back past block 65535 and through `..` | `PASS fsutil` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line, without a disk | `panic: No root filesystem found!`, exit status 0 |
 | `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, converted by `elf2aout`), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
-| `swap`     | as `rootfs`, with `/sbin/init` from `swapinit.c`: a parent and a child take turns over two pipes, so each is swapped out and in at every turn while it sleeps, and both check patterns in their data, bss and stack; afterwards all six patterns are on the swap partition and the image passes `fsutil --check` (D40) | `swap ok`, exit status 0 |
+| `swap`     | as `rootfs`, with `/sbin/init` from `swapinit.c`: a parent and a child take turns over two pipes, so each is swapped out and in at every turn while it sleeps, and both check patterns in their data, bss and stack; the kernel is relinked to swap on `vd0b`, and afterwards all six patterns are on that partition and the image passes `fsutil --check` (D40) | `swap ok`, exit status 0 |
+| `mdswap`   | as `swap`, on the board kernel, which swaps on `md0` (D41); none of the patterns reach `vd0b` | `swap ok`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's
@@ -158,7 +161,9 @@ qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel sys/m68k/virt/unix.elf -nogr
 
 To attach a disk, add `-drive file=disk.img,if=none,format=raw,id=d0 -device
 virtio-blk-device,drive=d0`. Disks are `vd0`, `vd1` in command-line order (D36); root is the
-first MBR partition of `vd0` (`vd0a`) and swap the second (`vd0b`).
+first MBR partition of `vd0` (`vd0a`). Swap is the memory disk `md0`, the RAM above the user
+window (D41), so its size follows `-m`; `swap on vd0b` in the board `Config` swaps to the second
+partition instead.
 
 QEMU loads the ELF and passes its bootinfo records (memory size, CPU) after `_end`. The
 console is the Goldfish TTY on stdio. Without a disk holding a big-endian filesystem written by

@@ -430,7 +430,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       context switch, as the `u`/`u0` exchange corrupted u areas in
       flight. 5 mutations (the fix reverted, stack address, no stack
       swap-out, the `vd` tail copy, the data address) are caught
-- [ ] Swap to RAM (D41): a memory-backed block device `md` for swap, in
+- [x] Swap to RAM (D41): a memory-backed block device `md` for swap, in
       `sys/m68k/` with entries in `files.kconf`/`devices.kconf`; storage
       is physical memory from `USER_DATA_END` to the bootinfo memory size,
       the strategy routine copies and completes at once, and `psize`
@@ -439,6 +439,12 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `swap`, which keeps `vd0b` covered through its own board config or
       a kernel built for it), and the banner shows the `md0` swap size.
       Depends on the swap task
+      Done: `sys/m68k/md.c` on block major 1 (PIC32's `sramc` slot); the
+      `virt` `Config` swaps on `md0` (15616 KB with `-m 16M`). Tests: `mdio`
+      (driver: placement, byte counts, bounds), `mdswap` (`swapinit.c` on
+      the board kernel; nothing reaches `vd0b`), and `swap` now relinks
+      the board objects with swap on `vd0b`. 8 mutations of `md.c` and
+      the swap device are caught; `>=` in the bounds test is equivalent
 
 ## M5: Libc and userland
 - [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline

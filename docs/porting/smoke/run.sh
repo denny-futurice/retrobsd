@@ -67,6 +67,9 @@
 #                 disk refuse them
 #        vdpart   vd.c, disklabel.c: MBR partitions, offsets and bounds
 #        vdbytes  vd.c: transfers of part of a sector, as swap does (D38)
+#        mdio     md.c: the memory disk spans the RAM above the user window,
+#                 copies any byte count both ways at once, and keeps its
+#                 bounds (D41)
 #        elf2aout host test, no QEMU: tools/elf2aout turns an m68k ELF
 #                 (aoutprog.S) into an a.out with a big-endian header and
 #                 the image objcopy gives; other ELF files are refused
@@ -81,8 +84,11 @@
 #                 and halts; the image still passes fsutil --check after
 #        swap     the same with swapinit.c: a parent and a child, swapped
 #                 out and in at every turn while they sleep on pipes, keep
-#                 their data, bss and stack (D38, D40); the patterns are on the
-#                 swap partition afterwards
+#                 their data, bss and stack (D38, D40); the kernel is
+#                 relinked to swap on vd0b, and the patterns are on that
+#                 partition afterwards
+#        mdswap   the same with the board kernel, which swaps on md0 (D41);
+#                 none of the patterns reach vd0b
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -119,7 +125,7 @@ expected() {
     hello) echo "hello m68030" ;;
     fpu) echo "fpu ok" ;;
     startup|cacr) echo "$1 ok" ;;
-    bootinfo|kstring|useraddr|udelay|swtch|fpswtch) echo "$1 ok" ;;
+    bootinfo|kstring|useraddr|udelay|swtch|fpswtch|mdio) echo "$1 ok" ;;
     ktrap) echo "panic: kernel trap" ;;
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
@@ -128,7 +134,7 @@ expected() {
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
-    swap) echo "swap ok" ;;
+    swap|mdswap) echo "swap ok" ;;
     esac
 }
 
@@ -208,7 +214,8 @@ fsutil_clean() {
 # swap partition, extended to its full 1 + 3072 KB (fsutil writes only up
 # to the root).  The root holds /dev/console, /sbin/init and the files of
 # $d/root named by the manifest lines given.  boot_image boots it, expects
-# a halt, and checks the image with fsutil afterwards.
+# a halt, and checks the image with fsutil afterwards; $2 is the kernel,
+# the board's by default.
 prep_root() {
     d=$out/$1 log=$out/$1-build.log
     rm -rf "$d" && mkdir -p "$d/root/sbin"
@@ -235,7 +242,7 @@ make_image() {
         { echo "FAIL $name: creating the image failed, see $log" >&2; return 1; }
 }
 boot_image() {
-    check_result "$1" "$(run_qemu "$board/unix.elf" \
+    check_result "$1" "$(run_qemu "${2:-$board/unix.elf}" \
         -drive file="$d/disk.img",if=none,format=raw,id=a -device virtio-blk-device,drive=a)" \
         halts || return 1
     fsutil_clean "$1" "$d/disk.img"
@@ -253,14 +260,9 @@ run_rootfs() {
     boot_image rootfs
 }
 
-# swap: /sbin/init from swapinit.c, a parent and a child that are swapped
-# out and in at every turn.  Afterwards the swap partition (the second MBR
-# entry) must hold the first 16 bytes of each of the six patterns, as
-# swapinit.c's first() and step() make them.
-run_swap() {
-    prep_root swap swapinit.c || return 1
-    make_image swap || return 1
-    boot_image swap || return 1
+# The six patterns swapinit.c's first() and step() make, 16 bytes each,
+# that are on the swap partition (the second MBR entry) of $d/disk.img.
+swap_patterns() {
     set -- $(od -An -v -tu1 -j 470 -N 8 "$d/disk.img")
     dd if="$d/disk.img" of="$d/swap.part" bs=512 skip=$(($1 + 256 * $2 + 65536 * $3)) \
         count=$(($5 + 256 * $6 + 65536 * $7)) 2>/dev/null
@@ -269,12 +271,43 @@ run_swap() {
         for a in 0 1 2; do
             v=$((0x10 + 0x40 * p + 0x10 * a)) s=$((3 + 2 * (3 * p + a))) pat=
             for i in $(seq 16); do pat=$pat$(printf %02x $((v & 255))); v=$((v + s)); done
-            case "$hex" in
-            *"$pat"*) ;;
-            *) echo "FAIL swap: pattern $p/$a ($pat) not on the swap partition" >&2; return 1 ;;
-            esac
+            case "$hex" in *"$pat"*) echo "$p/$a" ;; esac
         done
     done
+}
+
+# swap: /sbin/init from swapinit.c, a parent and a child that are swapped
+# out and in at every turn, on a kernel relinked from the board's objects
+# with swap on vd0b.  Afterwards all six patterns must be on vd0b.
+run_swap() {
+    prep_root swap swapinit.c || return 1
+    printf '%s\n' '#include "sys/param.h"' '#include "sys/conf.h"' \
+        'dev_t rootdev = makedev(0, 1);' 'dev_t dumpdev = makedev(0, 2);' \
+        'dev_t swapdev = makedev(0, 2);' >"$d/swapvd.c"
+    objs=$(printf 'objs:\n\t@echo $(SYSTEM_OBJ) vers.o\n' |
+        make -s --no-print-directory -C "$board" -f Makefile -f - objs)
+    if ! { ${CROSS}gcc $KCFLAGS -I"$board" -c "$d/swapvd.c" -o "$d/swapvd.o" &&
+           (cd "$board" && ${CROSS}ld -m m68kelf -nostdlib -T ../virt/kernel.ld \
+               $objs "$d/swapvd.o" -o "$d/unix.elf"); } >>"$log" 2>&1; then
+        echo "FAIL swap: relinking the kernel failed, see $log" >&2
+        return 1
+    fi
+    make_image swap || return 1
+    boot_image swap "$d/unix.elf" || return 1
+    found=$(swap_patterns | wc -l)
+    [ "$found" = 6 ] ||
+        { echo "FAIL swap: $found of 6 patterns on the swap partition" >&2; return 1; }
+}
+
+# mdswap: the same on the board kernel, which swaps on md0 (D41); vd0b
+# must stay free of the patterns.
+run_mdswap() {
+    prep_root mdswap swapinit.c || return 1
+    make_image mdswap || return 1
+    boot_image mdswap || return 1
+    found=$(swap_patterns | wc -l)
+    [ "$found" = 0 ] ||
+        { echo "FAIL mdswap: $found of 6 patterns on vd0b" >&2; return 1; }
 }
 
 # The vd test disks (vdstub.h): every sector holds 64 lines "%07d\n" of
@@ -399,10 +432,11 @@ run_test() {
     [ "$name" = fsutil ] && { run_fsutil; return; }
     [ "$name" = rootfs ] && { run_rootfs; return; }
     [ "$name" = swap ] && { run_swap; return; }
+    [ "$name" = mdswap ] && { run_mdswap; return; }
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
-    machdep="bootinfo kstring useraddr udelay halt swtch fpswtch"
+    machdep="bootinfo kstring useraddr udelay halt swtch fpswtch mdio"
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
@@ -449,6 +483,7 @@ run_test() {
     ttyrx|ttyrxopen|intrnest) extra=m68k/gftty ;;
     consdev|errmsg|nlist) extra="kernel/kern_sysctl m68k/sysctl" ;;
     vd*) extra="m68k/vd m68k/disklabel" ;;
+    mdio) extra=m68k/md ;;
     *) extra= ;;
     esac
     for f in $extra; do
@@ -492,7 +527,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes elf2aout fsutil kernel rootfs swap}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap}; do
     run_test "$t" || status=1
 done
 exit $status
