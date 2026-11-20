@@ -520,7 +520,7 @@ main (
 		mflag = 0;
 		l = bar+7*cturn;
 		for (i = bar; i != l; i += cturn)
-			if (board[i]*cturn)  mflag++;
+			if (board[i]*cturn != 0)  mflag++;
 
 							/* compute game value */
 		if (tflag)

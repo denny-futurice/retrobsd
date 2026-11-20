@@ -8,9 +8,3 @@ console	"/libexec/getty std.default"	xterm	on secure	#special
 # if you would rather use the getty on the real tty - it's up to you.
 
 tty0	"/libexec/getty std.default"	xterm	off secure
-tty1	"/libexec/getty std.default"	xterm	off secure
-tty2	"/libexec/getty std.default"	xterm	off secure
-tty3	"/libexec/getty std.default"	xterm	off secure
-tty4	"/libexec/getty std.default"	xterm	off secure
-tty5	"/libexec/getty std.default"	xterm	off secure
-ttyUSB0	"/libexec/getty std.default"	xterm	off secure

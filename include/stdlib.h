@@ -57,13 +57,13 @@
 typedef unsigned size_t;
 #endif
 
-void    abort(void);
+void    abort(void) __attribute__((__noreturn__));
 int     abs(int);
 int     atexit(void (*)(void));
 int     atoi(const char *);
 long    atol(const char *);
 void    *calloc(size_t, size_t);
-void    exit(int);
+void    exit(int) __attribute__((__noreturn__));
 void    free(void *);
 char    *getenv(const char *);
 long    labs(long);

@@ -11,14 +11,14 @@ CFLAGS		+= ${DEFS} -Os -Wall -Werror
 SRCS		= ${STDSRC}
 OBJS		= ${STDOBJ}
 
-STDSRC		= abort.c alarm.c atof.c atoi.c atol.c calloc.c closedir.c crypt.c \
-		  ctime.c ctype_.c daemon.c devname.c ecvt.c err.c \
+STDSRC		= abort.c abs.c alarm.c atof.c atoi.c atol.c calloc.c closedir.c crypt.c \
+		  ctime.c ctype_.c daemon.c devname.c ecvt.c err.c fabs.c \
 		  execvp.c fakcu.c frexp.c fstab.c gcvt.c getenv.c getgrent.c \
                   getgrgid.c getgrnam.c getlogin.c \
 		  getgrouplist.c gethostname.c getpagesize.c \
 		  getpass.c getpwent.c getloadavg.c getmntinfo.c \
 		  getttyent.c getttynam.c getusershell.c getwd.c \
-		  initgroups.c isatty.c isinf.c isinff.c isnan.c isnanf.c ldexp.c malloc.c mktemp.c \
+		  initgroups.c isatty.c isinf.c labs.c isinff.c isnan.c isnanf.c ldexp.c malloc.c mktemp.c \
                   modf.c modff.c ndbm.c nlist.c knlist.c opendir.c perror.c popen.c \
                   psignal.c qsort.c random.c readdir.c regex.c scandir.c \
                   seekdir.c setmode.c sethostname.c setenv.c siglist.c \
@@ -28,14 +28,14 @@ STDSRC		= abort.c alarm.c atof.c atoi.c atol.c calloc.c closedir.c crypt.c \
 		  telldir.c time.c timezone.c ttyname.c ttyslot.c ualarm.c usleep.c \
 		  strdup.c uname.c wait.c wait3.c waitpid.c
 
-STDOBJ		= abort.o alarm.o atof.o atoi.o atol.o calloc.o closedir.o crypt.o \
-		  ctime.o ctype_.o daemon.o devname.o ecvt.o err.o \
+STDOBJ		= abort.o abs.o alarm.o atof.o atoi.o atol.o calloc.o closedir.o crypt.o \
+		  ctime.o ctype_.o daemon.o devname.o ecvt.o err.o fabs.o \
 		  execvp.o fakcu.o frexp.o fstab.o gcvt.o getenv.o getgrent.o \
                   getgrgid.o getgrnam.o getlogin.o \
 		  getgrouplist.o gethostname.o getpagesize.o \
 		  getpass.o getpwent.o getloadavg.o getmntinfo.o \
 		  getttyent.o getttynam.o getusershell.o getwd.o \
-		  initgroups.o isatty.o isinf.o isinff.o isnan.o isnanf.o ldexp.o malloc.o mktemp.o \
+		  initgroups.o isatty.o isinf.o labs.o isinff.o isnan.o isnanf.o ldexp.o malloc.o mktemp.o \
                   modf.o modff.o ndbm.o nlist.o knlist.o opendir.o perror.o popen.o \
                   psignal.o qsort.o random.o readdir.o regex.o scandir.o \
                   seekdir.o setmode.o sethostname.o setenv.o siglist.o \

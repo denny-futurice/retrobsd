@@ -4,3 +4,7 @@
 -ffreestanding
 -nostdinc
 -I.
+-U__linux__
+-U__linux
+-U__gnu_linux__
+-Ulinux

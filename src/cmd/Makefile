@@ -14,7 +14,7 @@ SUBDIR		= awk basic calendar chflags \
                   chpass dc diff emg env fdisk find fold forth \
                   fstat hostname id la ls login make \
                   man md5 med more passwd pdc picoc printf \
-                  re renice retroforth scm sed setty sh sl \
+                  re renice scm sed setty sh sl \
                   smux stty sysctl test uname xargs \
                   zmodem gtest msec cron compress date2 tip \
                   talloc uucp viless virus yacc
@@ -69,6 +69,9 @@ TTY		= wall write
 #
 # PIC32 hardware demos and drivers with no QEMU virt equivalent (D18).
 #SUBDIR		+= adc-demo glcdtest portio pwm wiznet
+#
+# Little-endian data files (D37), back in M6.
+#SUBDIR		+= retroforth
 
 BINS		= $(STD) $(NSTD) $(SETUID) $(OPERATOR) $(KMEM) $(TTY) $(SCRIPT)
 

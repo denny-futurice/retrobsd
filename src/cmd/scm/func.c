@@ -61,14 +61,14 @@ static long ipow (long x, long p)
 
 #define CXR(func,op) lisp_t func (lisp_t a, lisp_t ctx) { \
 	if (! istype (a, TPAIR) || ! istype (a = car (a), TPAIR)) \
-	return (NIL); return (op (a)); }
+	return (NIL); else return (op (a)); }
 
 CXR (Fcar, car)
 CXR (Fcdr, cdr)
 
 #define CXXR(func,op1,op2) lisp_t func (lisp_t a, lisp_t ctx) { \
 	if (! istype (a, TPAIR) || ! istype (a = car (a), TPAIR) || \
-	! istype (a = op1 (a), TPAIR)) return (NIL); return (op2 (a)); }
+	! istype (a = op1 (a), TPAIR)) return (NIL); else return (op2 (a)); }
 
 CXXR (Fcaar, car, car)
 CXXR (Fcadr, cdr, car)

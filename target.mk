@@ -10,7 +10,8 @@ CROSS       ?= m68k-linux-gnu-
 
 CC		= $(CROSS)gcc -mcpu=68030 -m68881 -std=gnu99 -ffreestanding \
                   -fno-pic -fno-pie -fno-stack-protector \
-                  -fomit-frame-pointer -I$(TOPSRC)/include
+                  -fomit-frame-pointer -I$(TOPSRC)/include \
+                  -U__linux__ -U__linux -U__gnu_linux__ -Ulinux
 LD		= $(CROSS)ld -m m68kelf
 AR		= $(CROSS)ar
 RANLIB          = $(CROSS)ranlib

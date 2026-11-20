@@ -22,81 +22,56 @@ dir /u
 #
 # Block devices.
 #
-# Major Minor Name  Device
+# Major Minor Name  Device (sys/m68k/devsw.c)
 # -------------------------
-#   0     0   sd0   Main SD card
-#   0     1   sd0a  Partition 1: root file system
-#   0     2   sd0b  Partition 2: swap space
-#   0     3   sd0c  Partition 3
-#   0     4   sd0d  Partition 4
-#   0     8   sd1   Second SD card
-#   0     9   sd1a  Partition 1
-#   0     10  sd1b  Partition 2
-#   0     11  sd1c  Partition 3
-#   0     12  sd1d  Partition 4
-#   1     0   rc0   Volatile disk - SRAM connected via CPLD (sramc)
-#   1     1   rc0a  Partition 1: filesystem
-#   1     2   rc0b  Partition 2: swap space
-#   2     0   dr0   Volatile disk - SDRAM on external memory bus (sdramp)
-#   2     1   dr0a  Partition 1: filesystem
-#   2     2   dr0b  Partition 2: swap space
-#   3     0   mr0   Volatile disk - MRAM on SPI port (mrams)
+#   0     0   vd0   First virtio disk (D36)
+#   0     1   vd0a  Partition 1: root file system
+#   0     2   vd0b  Partition 2: swap space
+#   0     3   vd0c  Partition 3
+#   0     4   vd0d  Partition 4
+#   0     8   vd1   Second virtio disk
+#   0     9   vd1a  Partition 1
+#   0     10  vd1b  Partition 2
+#   0     11  vd1c  Partition 3
+#   0     12  vd1d  Partition 4
+#   1     0   md0   Memory disk above the user window, for swap (D41)
 #   4     64  swap  Virtual swap device, mapped to real swap partition
 #   4     0   swap0 Virtual i/o area, allocated from swap space
 #   4     1   swap1 Virtual i/o area, allocated from swap space
 #   4     2   swap2 Virtual i/o area, allocated from swap space
-#   5     0   sr0   Volatile disk - serial RAM on SPI port (spirams)
 #
-bdev /dev/sd0
-major 0             # Main SD card
+bdev /dev/vd0
+major 0             # First virtio disk
 minor 0
-bdev /dev/sd0a
+bdev /dev/vd0a
 major 0
 minor 1
-bdev /dev/sd0b
+bdev /dev/vd0b
 major 0
 minor 2
-bdev /dev/sd0c
+bdev /dev/vd0c
 major 0
 minor 3
-bdev /dev/sd0d
+bdev /dev/vd0d
 major 0
 minor 4
-bdev /dev/sd1
-major 0             # Second SD card
+bdev /dev/vd1
+major 0             # Second virtio disk
 minor 8
-bdev /dev/sd1a
+bdev /dev/vd1a
 major 0
 minor 9
-bdev /dev/sd1b
+bdev /dev/vd1b
 major 0
 minor 10
-bdev /dev/sd1c
+bdev /dev/vd1c
 major 0
 minor 11
-bdev /dev/sd1d
+bdev /dev/vd1d
 major 0
 minor 12
-bdev /dev/rc0
-major 1             # Volatile disk - SRAM connected via CPLD (sramc)
-minor 0
-bdev /dev/rc0a
-major 1
-minor 1
-bdev /dev/rc0b
-major 1
-minor 2
-bdev /dev/dr0
-major 2             # Volatile disk - SDRAM on external memory bus (sdramp)
-minor 0
-bdev /dev/dr0a
-major 2
-minor 1
-bdev /dev/dr0b
-major 2
-minor 2
-bdev /dev/mr0
-major 3             # Volatile disk - MRAM on SPI port (mrams)
+bdev /dev/md0
+major 1             # Memory disk for swap (D41)
 minor 0
 bdev /dev/swap
 major 4             # Virtual swap device, mapped to real swap partition
@@ -110,9 +85,6 @@ minor 1
 bdev /dev/swap2
 major 4
 minor 2
-bdev /dev/sr0
-major 5             # Volatile disk - serial RAM on SPI port (spirams)
-minor 0
 
 #
 # Character devices.
@@ -161,32 +133,10 @@ major 5
 minor 0
 
 #
-# UART driver.
+# Goldfish TTY (one unit; the console is unit 0 through major 0).
 #
 cdev /dev/tty0
 major 6
-minor 0
-cdev /dev/tty1
-major 6
-minor 1
-cdev /dev/tty2
-major 6
-minor 2
-cdev /dev/tty3
-major 6
-minor 3
-cdev /dev/tty4
-major 6
-minor 4
-cdev /dev/tty5
-major 6
-minor 5
-
-#
-# USB serial driver.
-#
-cdev /dev/ttyUSB0
-major 7
 minor 0
 
 #
@@ -216,182 +166,6 @@ minor 2
 cdev /dev/ptyp3
 major 9
 minor 3
-
-#
-# GPIO driver.
-#
-cdev /dev/porta
-major 10
-minor 0
-cdev /dev/portb
-major 10
-minor 1
-cdev /dev/portc
-major 10
-minor 2
-cdev /dev/portd
-major 10
-minor 3
-cdev /dev/porte
-major 10
-minor 4
-cdev /dev/portf
-major 10
-minor 5
-cdev /dev/portg
-major 10
-minor 6
-cdev /dev/confa
-major 10
-minor 64
-cdev /dev/confb
-major 10
-minor 65
-cdev /dev/confc
-major 10
-minor 66
-cdev /dev/confd
-major 10
-minor 67
-cdev /dev/confe
-major 10
-minor 68
-cdev /dev/conff
-major 10
-minor 69
-cdev /dev/confg
-major 10
-minor 70
-
-#
-# ADC driver.
-#
-cdev /dev/adc0
-major 11
-minor 0
-cdev /dev/adc1
-major 11
-minor 1
-cdev /dev/adc2
-major 11
-minor 2
-cdev /dev/adc3
-major 11
-minor 3
-cdev /dev/adc4
-major 11
-minor 4
-cdev /dev/adc5
-major 11
-minor 5
-cdev /dev/adc6
-major 11
-minor 6
-cdev /dev/adc7
-major 11
-minor 7
-cdev /dev/adc8
-major 11
-minor 8
-cdev /dev/adc9
-major 11
-minor 9
-cdev /dev/adc10
-major 11
-minor 10
-cdev /dev/adc11
-major 11
-minor 11
-cdev /dev/adc12
-major 11
-minor 12
-cdev /dev/adc13
-major 11
-minor 13
-cdev /dev/adc14
-major 11
-minor 14
-cdev /dev/adc15
-major 11
-minor 15
-
-#
-# SPI driver.
-#
-cdev /dev/spi1
-major 12
-minor 0
-cdev /dev/spi2
-major 12
-minor 1
-cdev /dev/spi3
-major 12
-minor 2
-cdev /dev/spi4
-major 12
-minor 3
-
-#
-# GLCD driver.
-#
-cdev /dev/glcd0
-major 13
-minor 0
-
-#
-# PWM driver.
-#
-cdev /dev/pwm1
-major 14
-minor 0
-cdev /dev/pwm2
-major 14
-minor 1
-cdev /dev/pwm3
-major 14
-minor 2
-cdev /dev/pwm4
-major 14
-minor 3
-cdev /dev/pwm5
-major 14
-minor 4
-
-#
-# PICGA driver.
-#
-cdev /dev/picga0
-major 15
-minor 0
-
-#
-# TFT display driver.
-#
-cdev /dev/tft0
-major 16
-minor 0
-cdev /dev/tftin0
-major 16
-minor 1
-
-#
-# Skeleton driver.
-#
-cdev /dev/skel1
-major 17
-minor 0
-cdev /dev/skel2
-major 17
-minor 1
-cdev /dev/skel3
-major 17
-minor 2
-cdev /dev/skel4
-major 17
-minor 3
-cdev /dev/skel5
-major 17
-minor 4
 
 #
 # Files: /root
@@ -430,12 +204,7 @@ file /etc/ttys
 #
 default
 filemode 0775
-file /bin/adb
-file /bin/adc-demo
-file /bin/aout
 file /bin/apropos
-file /bin/ar
-file /bin/as
 file /bin/awk
 file /bin/basename
 file /bin/basic
@@ -444,8 +213,6 @@ file /bin/cal
 file /bin/calendar
 file /bin/cat
 file /bin/cb
-file /bin/cc
-file /bin/chat-server
 file /bin/chflags
 file /bin/chgrp
 file /bin/chmod
@@ -456,7 +223,6 @@ file /bin/col
 file /bin/comm
 file /bin/compress
 file /bin/cp
-file /bin/cpp
 file /bin/crontab
 file /bin/date
 file /bin/dc
@@ -480,7 +246,6 @@ file /bin/fold
 file /bin/forth
 file /bin/fstat
 mode 02755
-file /bin/glcdtest
 file /bin/globdump
 file /bin/globread
 file /bin/globwrite
@@ -496,13 +261,9 @@ file /bin/join
 file /bin/kill
 file /bin/la
 file /bin/last
-file /bin/lcc
-file /bin/lcpp
-file /bin/ld
 file /bin/ln
 file /bin/login
 mode 04755
-file /bin/lol
 file /bin/ls
 file /bin/mail
 mode 04755
@@ -516,45 +277,36 @@ file /bin/more
 file /bin/msec
 file /bin/mv
 file /bin/nice
-file /bin/nm
 file /bin/nohup
-file /bin/ntpdate
 file /bin/od
 file /bin/pagesize
 file /bin/passwd
 mode 04755
 file /bin/pdc
 file /bin/picoc
-file /bin/portio
 file /bin/pr
 file /bin/printenv
 file /bin/printf
 file /bin/ps
 mode 02755
 file /bin/pwd
-file /bin/pwm
-file /bin/ranlib
 file /bin/re
 file /bin/renice
 file /bin/renumber
-file /bin/retroforth
 file /bin/rev
 file /bin/rm
 file /bin/rmail
 file /bin/rmdir
 file /bin/rz
-file /bin/scc
 file /bin/scm
 file /bin/sed
 file /bin/setty
 file /bin/sh
-file /bin/size
 file /bin/sl
 file /bin/sleep
 file /bin/smux
 file /bin/sort
 file /bin/split
-file /bin/strip
 file /bin/stty
 file /bin/su
 mode 04755
@@ -565,7 +317,6 @@ file /bin/sz
 file /bin/tail
 file /bin/tar
 file /bin/tee
-file /bin/telnet
 file /bin/test
 file /bin/time
 file /bin/tip
@@ -598,8 +349,6 @@ file /bin/w
 file /bin/wall
 mode 02755
 file /bin/wc
-file /bin/web-client
-file /bin/web-server
 file /bin/whereis
 file /bin/who
 file /bin/whoami
@@ -672,7 +421,6 @@ target /sbin/reboot
 default
 filemode 0775
 dir /games
-file /games/adventure
 file /games/aclock
 file /games/arithmetic
 file /games/atc
@@ -688,10 +436,8 @@ file /games/cfscores
 file /games/cribbage
 file /games/factor
 file /games/fish
-file /games/fortune
 file /games/hangman
 file /games/mille
-file /games/monop
 file /games/morse
 file /games/number
 file /games/pig
@@ -717,15 +463,12 @@ file /games/wump
 default
 filemode 0444
 dir /games/lib
-file /games/lib/adventure.dat
 file /games/lib/battle_strings
 file /games/lib/backrules
 file /games/lib/bogdict
 file /games/lib/cfscores
 file /games/lib/crib.instr
 mode 0666
-file /games/lib/fortunes.dat
-file /games/lib/cards.pck
 file /games/lib/robots_roll
 mode 0666
 file /games/lib/snakerawscores
@@ -781,8 +524,6 @@ dir /include
 dir /include/arpa
 dir /include/machine
 dir /include/readline
-dir /include/smallc
-dir /include/smallc/sys
 dir /include/sys
 file /include/alloca.h
 file /include/a.out.h
@@ -798,27 +539,22 @@ file /include/grp.h
 file /include/kmem.h
 file /include/lastlog.h
 file /include/limits.h
-file /include/machine/adc.h
+file /include/machine/asm.h
 file /include/machine/cpu.h
 file /include/machine/debug.h
+file /include/machine/disklabel.h
 file /include/machine/elf_machdep.h
+file /include/machine/endian.h
 file /include/machine/float.h
-file /include/machine/io.h
+file /include/machine/fpu.h
+file /include/machine/frame.h
+file /include/machine/gftty.h
 file /include/machine/limits.h
 file /include/machine/machparam.h
-file /include/machine/mrams.h
-file /include/machine/pic32mx.h
-file /include/machine/sdram.h
-file /include/machine/sdramp.h
-file /include/machine/sdramp_config.h
-file /include/machine/sramc.h
-file /include/machine/uart.h
-file /include/machine/usb_ch9.h
-file /include/machine/usb_device.h
-file /include/machine/usb_function_cdc.h
-file /include/machine/usb_function_hid.h
-file /include/machine/usb_hal_pic32.h
-file /include/machine/usb_uart.h
+file /include/machine/md.h
+file /include/machine/vd.h
+file /include/machine/virt.h
+file /include/machine/virtio.h
 file /include/math.h
 file /include/mtab.h
 file /include/ndbm.h
@@ -832,13 +568,6 @@ file /include/readline/readline.h
 file /include/regexp.h
 file /include/setjmp.h
 file /include/sgtty.h
-file /include/smallc/curses.h
-file /include/smallc/fcntl.h
-file /include/smallc/signal.h
-file /include/smallc/stdio.h
-file /include/smallc/sys/gpio.h
-file /include/smallc/sys/spi.h
-file /include/smallc/wiznet.h
 file /include/stdarg.h
 file /include/stddef.h
 file /include/stdint.h
@@ -938,7 +667,6 @@ target sys/syslog.h
 #file /lib/libreadline.a
 #file /lib/libtermlib.a
 #file /lib/libwiznet.a
-file /lib/retroImage
 
 #
 # Files: /libexec
@@ -949,8 +677,6 @@ file /libexec/bigram
 file /libexec/code
 file /libexec/diffh
 file /libexec/getty
-file /libexec/smallc
-file /libexec/smlrc
 
 #
 # Files: /share
@@ -1142,19 +868,6 @@ file /share/examples/gpanel/fonts/verdana7.c
 #
 # Files: /share/examples/smallc
 #
-dir /share/examples/smallc
-file /share/examples/smallc/Makefile
-file /share/examples/smallc/adc.c
-file /share/examples/smallc/gpio.c
-file /share/examples/smallc/hello.c
-file /share/examples/smallc/primelist.c
-file /share/examples/smallc/primesum.c
-file /share/examples/smallc/q8.c
-file /share/examples/smallc/rain.c
-file /share/examples/smallc/test1.c
-file /share/examples/smallc/test2.c
-file /share/examples/smallc/test3.c
-file /share/examples/smallc/webserver.c
 
 #
 # Files: /share/examples/sensors
@@ -1256,7 +969,6 @@ file /share/man/cat1/adb.0
 file /share/man/cat1/addbib.0
 file /share/man/cat1/apply.0
 file /share/man/cat1/apropos.0
-file /share/man/cat1/ar.0
 file /share/man/cat1/as.0
 file /share/man/cat1/at.0
 file /share/man/cat1/atq.0
@@ -1283,7 +995,6 @@ file /share/man/cat1/colcrt.0
 file /share/man/cat1/colrm.0
 file /share/man/cat1/comm.0
 file /share/man/cat1/cp.0
-file /share/man/cat1/cpp.0
 file /share/man/cat1/crontab.0
 file /share/man/cat1/csh.0
 file /share/man/cat1/ctags.0
@@ -1324,8 +1035,6 @@ file /share/man/cat1/kill.0
 file /share/man/cat1/la.0
 file /share/man/cat1/last.0
 file /share/man/cat1/lastcomm.0
-file /share/man/cat1/lcc.0
-file /share/man/cat1/ld.0
 file /share/man/cat1/learn.0
 file /share/man/cat1/leave.0
 file /share/man/cat1/lex.0
@@ -1379,7 +1088,6 @@ file /share/man/cat1/px.0
 file /share/man/cat1/pxp.0
 file /share/man/cat1/pxref.0
 file /share/man/cat1/quota.0
-file /share/man/cat1/ranlib.0
 file /share/man/cat1/ratfor.0
 file /share/man/cat1/rcp.0
 file /share/man/cat1/rdist.0
@@ -1652,7 +1360,6 @@ file /share/man/cat4/vv.0
 file /share/man/cat5/acct.0
 file /share/man/cat5/aliases.0
 file /share/man/cat5/a.out.0
-file /share/man/cat5/ar.0
 file /share/man/cat5/core.0
 file /share/man/cat5/crontab.0
 file /share/man/cat5/dbx.0
@@ -1675,7 +1382,6 @@ file /share/man/cat5/phones.0
 file /share/man/cat5/plot.0
 file /share/man/cat5/printcap.0
 file /share/man/cat5/protocols.0
-file /share/man/cat5/ranlib.0
 file /share/man/cat5/remote.0
 file /share/man/cat5/resolver.0
 file /share/man/cat5/services.0
@@ -1691,7 +1397,6 @@ file /share/man/cat5/tzfile.0
 file /share/man/cat5/USERFILE.0
 file /share/man/cat5/vfont.0
 file /share/man/cat5/vgrindefs.0
-file /share/man/cat6/adventure.0
 file /share/man/cat6/arithmetic.0
 file /share/man/cat6/atc.0
 file /share/man/cat6/backgammon.0
@@ -1702,10 +1407,8 @@ file /share/man/cat6/boggle.0
 file /share/man/cat6/caesar.0
 file /share/man/cat6/cribbage.0
 file /share/man/cat6/fish.0
-file /share/man/cat6/fortune.0
 file /share/man/cat6/hangman.0
 file /share/man/cat6/mille.0
-file /share/man/cat6/monop.0
 file /share/man/cat6/number.0
 file /share/man/cat6/pig.0
 file /share/man/cat6/pom.0

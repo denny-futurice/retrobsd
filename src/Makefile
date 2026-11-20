@@ -23,6 +23,9 @@ $(SUBDIR):	FRC | $(LIBS)
 FRC:
 
 install:        elf32-m68k.ld
+		$(INSTALL) libtermlib/termcap/termcap.small $(DESTDIR)/etc/termcap
+		$(MAKE) -C libvmf DESTDIR=$(DESTDIR) install
+		$(MAKE) -C libgpanel DESTDIR=$(DESTDIR) install
 		-for i in $(SUBDIR); do \
 			$(MAKE) -C $$i DESTDIR=$(DESTDIR) all && \
 			$(MAKE) -C $$i DESTDIR=$(DESTDIR) install; done

@@ -57,7 +57,7 @@
 #define X_OK            1       /* Test for execute permission.  */
 #define F_OK            0       /* Test for existence.  */
 
-void    _exit(int);
+void    _exit(int) __attribute__((__noreturn__));
 int     access(const char *pathname, int mode);
 unsigned int alarm(unsigned);
 pid_t   fork(void);

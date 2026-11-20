@@ -48,7 +48,7 @@ check:
 
 .PHONY: kernel
 kernel: $(CONFIG) tools
-		$(MAKE) -C sys/pic32 all
+		$(MAKE) -C sys/m68k/virt all
 
 .PHONY: tools
 
@@ -74,11 +74,11 @@ $(CONFIG):
 
 clean:
 		rm -f *~
-		for dir in tools lib src sys/pic32; do $(MAKE) -C $$dir -k clean; done
+		for dir in tools lib src sys/m68k/virt; do $(MAKE) -C $$dir -k clean; done
 
 cleanall:       clean
 		$(MAKE) -C lib clean
-		rm -f sys/pic32/*/unix.hex bin/* sbin/* libexec/*
+		rm -f bin/* sbin/* libexec/*
 		rm -f games/[a-k]* games/[m-z]* share/man/cat*/*
 		rm -f games/lib/adventure.dat games/lib/cfscores
 		rm -f share/re.help share/emg.keys share/misc/more.help

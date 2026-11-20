@@ -113,10 +113,15 @@ typedef struct {
  *   initialize it in vars.c, so we cast it as needed to keep lint
  *   happy.
  */
+/*
+ * Every member is as wide as the char * it overlays, so a value set by
+ * vars.c as (char *)TRUE reads back the same through any of them on a
+ * big-endian machine too.
+ */
 typedef union {
     int zz_number;
-    short   zz_boolean;
-    char    zz_character;
+    int     zz_boolean;
+    int     zz_character;
     int *zz_address;
 } zzhack;
 
