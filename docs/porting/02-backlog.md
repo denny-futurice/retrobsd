@@ -454,9 +454,15 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `libcrt0`, `libstring`, `libsys`, `libsetjmp` and `libsignal`; every
       mutant of the stubs, `jmp_buf` saves, mask handling, trampoline and
       `crt0` offsets is caught
-- [ ] Byte order for userland (D37): `machine/endian.h` (`BYTE_ORDER ==
+- [x] Byte order for userland (D37): `machine/endian.h` (`BYTE_ORDER ==
       BIG_ENDIAN`) in `sys/m68k`; `htonl`/`htons`/`ntohl`/`ntohs` as the
       identity in `src/libc/m68k` (MIPS has `gen/htonl.S`, `gen/htons.S`)
+      Done: `sys/m68k/endian.h` (4.4BSD values) and
+      `src/libc/m68k/gen/{htonl,htons}.c`; `htons`/`ntohs` keep only the
+      low 16 bits of their `unsigned` argument. Nothing in the tree
+      includes `<machine/endian.h>` yet; picoc tests the byte order at run
+      time. Smoke test `libendian`; swapped bytes, a missing mask and a
+      wrong `BYTE_ORDER` are caught
 - [ ] `<sys/wait.h>` (D37): rewrite `WIFEXITED`, `WEXITSTATUS`,
       `WTERMSIG`, `WIFSTOPPED`, ... with shifts and masks, and give
       `union wait` its big-endian field order; users are `sh`, `csh`,
