@@ -105,6 +105,8 @@
 #                 through the W* macros and union wait
 #        libint64 the 64-bit integer helpers (D43): division, shifts and
 #                 conversions to and from float and double
+#        libfp    floating point in libc and libm (D44): printf, scanf, atof,
+#                 strtod, ecvt, frexp, ldexp, HUGE_VAL and the libm functions
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -151,7 +153,7 @@ expected() {
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
     swap|mdswap) echo "swap ok" ;;
-    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64) echo "$1 ok" ;;
+    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp) echo "$1 ok" ;;
     esac
 }
 
@@ -239,14 +241,15 @@ prep_root() {
     rm -rf "$d" && mkdir -p "$d/root/sbin"
     build_kernel "$1" || return 1
     if [ "$3" = libc ]; then
-        libc="-I$top/include" crt0=$top/src/crt0.o libs="-L$top/src -lc"
+        libc="-I$top/include" crt0=$top/src/crt0.o libs="-L$top/src -lm -lc"
     else
         libc= crt0= libs=
     fi
     if ! { make -C "$top/tools/fsutil" &&
            make -C "$top/tools/elf2aout" &&
            { [ -z "$crt0" ] || { make -C "$top/src/startup-m68k" &&
-                                 make -C "$top/src/libc"; }; } &&
+                                 make -C "$top/src/libc" &&
+                                 make -C "$top/src/libm"; }; } &&
            ${CROSS}gcc $CFLAGS $libc -c "$here/$2" -o "$d/init.o" &&
            ${CROSS}ld -T "$top/src/elf32-m68k.ld" $crt0 "$d/init.o" $libs -o "$d/init.elf" &&
            "$top/tools/elf2aout/elf2aout" "$d/init.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
@@ -466,7 +469,7 @@ run_test() {
     [ "$name" = rootfs ] && { run_rootfs; return; }
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
-    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64) run_libc $name; return ;; esac
+    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -562,7 +565,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
         consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
-        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64}; do
+        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp}; do
     run_test "$t" || status=1
 done
 exit $status

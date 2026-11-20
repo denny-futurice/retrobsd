@@ -1,5 +1,5 @@
 /*
- * Common part of the libc tests (libcrt0 to libsignal): each is a C
+ * Common part of the libc tests (libcrt0 to libfp): each is a C
  * /sbin/init linked with src/crt0.o and src/libc.a.  It opens the console
  * as fds 0-2, prints "FAIL file:line: condition" for every failed check
  * and "<name> ok" if none failed, and halts with reboot(RB_HALT).

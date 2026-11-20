@@ -912,3 +912,51 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   using `long double` with 64-bit integers would fail to link (missing
   `__floatdixf` etc.) until helpers written for the 68881 format are
   added.
+
+## D44: floating point in libc and libm
+- **Context:** the M5 audit of the FP code in `src/libc` (`atof`,
+  `strtod`, `ecvt`/`fcvt`/`gcvt`, `doprnt` `%e`/`%f`/`%g`, `doscan`,
+  `frexp`/`ldexp`/`modf`, `isnan`/`isinf`) and `src/libm`. Almost all of
+  it is portable V7/4.3BSD C that does its arithmetic through `double`
+  and needs no change on the 68881. Four places assume the PIC32's
+  32-bit `double` or little-endian words, and `sys/m68k/float.h` already
+  gives the IEEE double values:
+  - `include/math.h` defined `HUGE_VAL` as `FLT_MAX` (3.4e38), so
+    `ldexp`, `exp`, `log`, `tan`, `j0`/`j1`/`jn` returned a finite 3.4e38
+    for overflow and poles. `printf("%f", exp(1000.))` printed 39 digits.
+  - `src/libm/fmod.c` unpacked a double with the low word first, so
+    every `fmod` was wrong on big-endian.
+  - `doscan.c` kept the `%f`/`%lf`/`%e` stores under `#if HAVE_FLOAT`,
+    which was never defined (a size saving on PIC32): `scanf` counted
+    the match but stored nothing.
+  - `ldexp` returned `HUGE_VAL` for exponents `>= DBL_MAX_EXP`, but
+    `frexp` mantissas are in [0.5, 1), so 1024 is still finite:
+    `ldexp(1., 1023)` overflowed.
+- **Decision:**
+  - `HUGE_VAL` is `__builtin_huge_val()` (+Inf), as ISO C allows and
+    GCC's own headers do.
+  - `fmod.c`'s union orders its words by `__BYTE_ORDER__`, as `wait.h`
+    does (D37).
+  - The `HAVE_FLOAT` guard is removed and `doscan.c` includes
+    `<stdlib.h>` for `atof`; the FPU is mandatory (D12), so scanf can
+    always convert.
+  - `ldexp` overflows only above `DBL_MAX_EXP`.
+  - `frexp(±Inf)` returns the infinity with exponent 0. It used to loop
+    forever (`Inf/2` is `Inf`), which the Inf `HUGE_VAL` would otherwise
+    make reachable through `log(exp(1000.))`.
+  - The libm algorithms (Newton `sqrt`, Cody–Waite polynomials) stay;
+    they are within 1e-14 of the correctly rounded results tested.
+- **Consequences:**
+  - `-std=gnu99` implies `-fexcess-precision=fast`: a `double` result
+    can stay in a 68881 register at 64-bit precision, so comparing it
+    exactly with a constant can fail. The tests store results to
+    `volatile double` first; programs that compare floats exactly can
+    behave differently from MIPS. Setting the FPCR rounding precision
+    to double is possible later, but is not done.
+  - Smoke test `libfp` (printf, scanf, atof/strtod, ecvt/gcvt, modf,
+    frexp/ldexp, isnan/isinf, HUGE_VAL and 20 libm results). Libc tests
+    now link `-lm -lc`, and `run.sh` builds `src/libm`. Each of the fixes
+    above, and fewer `sqrt` iterations, is caught when reverted.
+  - Remaining known limits, not port-specific: `ldexp` flushes results
+    below `DBL_MIN_EXP - 2` to 0 (no denormals), `sqrt(Inf)` is NaN, and
+    there is no `long double` libm.

@@ -67,8 +67,9 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   are `src/elf32-m68k.ld` (userland, linked at `USER_DATA_START`) and `sys/m68k/virt/kernel.ld`
   (vectors at 0, `u0`/`u` at the top of the kernel region). The kernel builds and boots
   (`make -C sys/m68k/virt`), with root on `vd0a` and swap on the memory disk `md0` (D41);
-  `elf2aout` converts big-endian m68k ELF (D39); `src/crt0.o` and `src/libc.a` build
-  (D42, the string routines are NetBSD's), but the rest of userland does not yet, so the
+  `elf2aout` converts big-endian m68k ELF (D39); `src/crt0.o`, `src/libc.a` and `src/libm.a` build
+  (D42, the string routines are NetBSD's; FP fixes in D44, where `double` results may keep
+  the 68881's extended precision, so tests store them to `volatile`), but the rest of userland does not yet, so the
   top-level `make` does not build for m68k. User programs start with `sp` at `argc` (D30). `clang-config.mk` is kept as reference.
 
 ## What this is (PIC32 system, reference)
