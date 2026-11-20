@@ -52,7 +52,7 @@ QEMU is estimated at about 2-3 person-months.
 - **No-MMU model:** keep the fixed user region and whole-process swapping
   (`USER_DATA_START`/`END`), as RetroBSD does today. There is no inter-process
   protection, and wild pointers do not fault. Accepted; the 68030 PMMU remains
-  a possible later upgrade.
+  a possible later upgrade (section 6).
 - Drop all PIC32 peripheral drivers (about 14k of the 17k lines in
   `sys/pic32/`). Reuse the kconfig mechanism with a new `sys/m68k/virt/`
   board (`Config`, plus entries in `files.kconf` and `devices.kconf`).
@@ -90,6 +90,57 @@ area and the most likely source of late-surfacing bugs.
 - Check `exec` and the a.out header, `inet`/`htons` code, and `utmp`/`wtmp`.
 - Build the image on the host with `fsutil` and verify with `fsutil --check`.
   A round trip (build, boot, `fsck`) is the proof.
+
+## 6. Multiple processes in memory (future, undecided)
+
+Today one user process is in core: every process runs in the fixed window
+`USER_DATA_START`-`USER_DATA_END` and a switch swaps whole processes (D5).
+Swap to RAM (D41, M4) makes those switches cheap without changing the model.
+Two ways to go further are recorded here; the choice is an M6 evaluation task.
+
+### 6a. Process slots without an MMU
+
+- **How:** split user memory into slots and load each program at its slot's
+  address. Programs must be relocated at load: link with `--emit-relocs`,
+  keep the relocations in the a.out (`a_reltext`/`a_reldata`, which
+  `elf2aout` now drops) and apply them in `exec_aout.c`. GCC's
+  `-msep-data` (data through a table at `a5`, as uClinux does) shrinks but
+  does not remove the fixups.
+- **A process cannot move once it runs:** pointers on its stack and heap are
+  absolute, so it must swap back in to the same slot.
+- **`fork`:** the child holds pointers into the parent's slot, so it must
+  share that slot, and parent and child swap against each other as today
+  (uClinux has only `vfork` for this reason). Workable rule: `fork` keeps
+  the child in the parent's slot; `exec` takes a free slot. Fork-then-exec
+  then works well.
+- **Limits:** fixed slot sizes cap `sbrk` and stack growth and fragment
+  memory; no protection between processes or for the kernel.
+- **Kernel work:** 11 kernel files assume the fixed window (`exec`, signals,
+  user address checks, `swapin`, ...) and need a per-process base; the
+  2.11BSD core allocator (`coremap`), removed in RetroBSD, comes back.
+- **Pro:** works on every 68030, including the MMU-less 68EC030 (A4000/030,
+  many accelerator cards).
+- **Risk:** medium. Toolchain and `elf2aout` changes, a new exec path, and
+  `fork` semantics that differ from 2.11BSD.
+
+### 6b. PMMU virtualization
+
+- **How:** every process is linked at the same virtual address, as today;
+  each gets its own physical memory and translation tables, and a switch
+  loads the 68030 CPU root pointer and flushes the ATC. Whole-process
+  swapping can stay; early-termination descriptors keep the tables small.
+- **Pro:** no relocation, `fork` is a plain copy, protection between
+  processes and for the kernel, room for growing segments or copy-on-write
+  later. User programs and `elf2aout` do not change.
+- **Risks:**
+  - QEMU's 68030 has no PMMU (D25): the code can only be tested on WinUAE
+    (or real hardware), or on QEMU's 68040, whose MMU differs (table
+    format, `pflush`/`ptest`).
+  - The 68EC030 has no MMU, so the no-MMU kernel (D5) must stay as an
+    option.
+  - User access from the kernel needs `moves` and fault recovery (D25
+    notes).
+- **Risk:** medium-high, mostly from testing outside QEMU.
 
 ## Risk summary
 

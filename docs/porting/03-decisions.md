@@ -818,3 +818,22 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   sleep. Interrupts are still taken while waiting, but the time is
   counted as idle. The `swap` smoke test checks a forked process's data,
   bss and stack across swaps while it sleeps on a pipe.
+
+## D41: Swap to a memory disk before M6
+- **Context:** only one user process is in core (D5), so every switch
+  between processes swaps whole processes. On disk that is slow, above
+  all on the Amiga under WinUAE (M6). The `virt` board has 16 MB, of
+  which the kernel and the user window use 768 KB. Several processes in
+  core (slots without an MMU, or the PMMU) are a larger change and still
+  undecided (assessment section 6). PIC32 RetroBSD already swapped to RAM
+  on boards that had it (`sdramp.c`, `sramc.c`, `spirams.c`).
+- **Decision:** add a memory-backed block device in M4, `md`, that the
+  board `Config` can name as the swap device (`swap on md0`). Its storage
+  is the physical memory above `USER_DATA_END` up to the bootinfo memory
+  size, and its strategy routine copies with `bcopy` and completes the
+  request at once. The process model, `swap()` and `sched()` stay as they
+  are. `vd0b` remains a valid swap device.
+- **Consequences:** a process switch costs a copy of the process's size
+  instead of disk I/O. Swap I/O is synchronous, as on PIC32, so D40's
+  wait loop never runs for `md`. The size of the swap area depends on the
+  machine's memory; on QEMU it is set with `-m`.
