@@ -41,20 +41,20 @@ CFLAGS          = -O ${DEFS}
 COMPILE_C       = ${CC} -c ${CFLAGS} $<
 COMPILE_S       = ${CC} -c ${DEFS} $<
 
-OBJS = exec_aout.o exec_conf.o exec_elf.o exec_script.o exec_subr.o \
-	init_main.o init_sysent.o kern_clock.o kern_descrip.o \
-	kern_exec.o kern_exit.o kern_fork.o kern_mman.o kern_proc.o \
-	kern_prot.o kern_prot2.o kern_resource.o kern_sig.o kern_sig2.o \
-	kern_subr.o kern_synch.o kern_sysctl.o kern_time.o subr_prf.o \
-	subr_rmap.o sys_generic.o sys_inode.o sys_pipe.o sys_process.o \
-	syscalls.o tty.o tty_subr.o tty_tty.o ufs_alloc.o ufs_bio.o \
-	ufs_bmap.o ufs_dsort.o ufs_fio.o ufs_inode.o ufs_mount.o \
-	ufs_namei.o ufs_subr.o ufs_syscalls.o ufs_syscalls2.o \
-	vfs_vnops.o vm_sched.o vm_swap.o vm_swp.o clock.o cons.o devsw.o \
-	gftty.o vd.o disklabel.o machdep.o mem.o signal.o swap.o \
-	sysctl.o locore.o trap.o 
+OBJS = exec_aout.o exec_conf.o exec_script.o exec_subr.o init_main.o \
+	init_sysent.o kern_clock.o kern_descrip.o kern_exec.o \
+	kern_exit.o kern_fork.o kern_mman.o kern_proc.o kern_prot.o \
+	kern_prot2.o kern_resource.o kern_sig.o kern_sig2.o kern_subr.o \
+	kern_synch.o kern_sysctl.o kern_time.o subr_prf.o subr_rmap.o \
+	sys_generic.o sys_inode.o sys_pipe.o sys_process.o syscalls.o \
+	tty.o tty_subr.o tty_tty.o ufs_alloc.o ufs_bio.o ufs_bmap.o \
+	ufs_dsort.o ufs_fio.o ufs_inode.o ufs_mount.o ufs_namei.o \
+	ufs_subr.o ufs_syscalls.o ufs_syscalls2.o vfs_vnops.o vm_sched.o \
+	vm_swap.o vm_swp.o clock.o cons.o devsw.o gftty.o vd.o \
+	disklabel.o machdep.o mem.o signal.o swap.o sysctl.o locore.o \
+	trap.o 
 
-CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c $S/kernel/exec_elf.c \
+CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c \
 	$S/kernel/exec_script.c $S/kernel/exec_subr.c \
 	$S/kernel/init_main.c $S/kernel/init_sysent.c \
 	$S/kernel/kern_clock.c $S/kernel/kern_descrip.c \
@@ -144,9 +144,6 @@ exec_aout.o: $S/kernel/exec_aout.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 exec_conf.o: $S/kernel/exec_conf.c ${SYSTEM_DEP}
-	${COMPILE_C}
-
-exec_elf.o: $S/kernel/exec_elf.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 exec_script.o: $S/kernel/exec_script.c ${SYSTEM_DEP}

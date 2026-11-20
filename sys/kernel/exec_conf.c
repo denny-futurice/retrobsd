@@ -37,7 +37,9 @@ int exec_elf_check(struct exec_params *epp);
 
 const struct execsw execsw[] = {
     { exec_aout_check,      "a.out" },      /* a.out binaries */
+#ifdef EXEC_ELF
     { exec_elf_check,       "elf" },        /* 32bit ELF bins */
+#endif
     { exec_script_check,    "script" },     /* shell scripts */
  };
 int nexecs = (sizeof(execsw) / sizeof(*execsw));
