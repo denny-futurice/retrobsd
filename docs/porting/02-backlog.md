@@ -463,11 +463,20 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       includes `<machine/endian.h>` yet; picoc tests the byte order at run
       time. Smoke test `libendian`; swapped bytes, a missing mask and a
       wrong `BYTE_ORDER` are caught
-- [ ] `<sys/wait.h>` (D37): rewrite `WIFEXITED`, `WEXITSTATUS`,
+- [x] `<sys/wait.h>` (D37): rewrite `WIFEXITED`, `WEXITSTATUS`,
       `WTERMSIG`, `WIFSTOPPED`, ... with shifts and masks, and give
       `union wait` its big-endian field order; users are `sh`, `csh`,
       `cron`, `popen`, `system`. Test: a child's exit code and signal as
       seen by the parent
+      Done: the macros read the status through `_W_INT` (an `int` or a
+      `union wait`) with shifts and masks; under `__BYTE_ORDER__ ==
+      __ORDER_BIG_ENDIAN__` the `union wait` fields come in reverse order
+      after 16 bits of padding, so they sit at the same bits of `w_status`.
+      Smoke test `libwait`: exit code, `SIGTERM`, `SIGQUIT` with a core
+      dump, and a stop and continue, through the macros and the fields,
+      and fields set by hand as `system()` does. All non-equivalent
+      mutants are caught (masking `WIFSTOPPED` with 0177 differs only for
+      signal 127)
 - [ ] Select the 64-bit integer runtime helpers from `src/libc/runtime/`
       (`divdi3`, `udivmoddi4`, ...); soft-float code is not used (D12)
 - [ ] Audit FP-dependent libc/libm code (`atof`, `ecvt`/`gcvt`, `printf` `%f`,

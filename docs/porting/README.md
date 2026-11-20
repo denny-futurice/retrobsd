@@ -150,6 +150,7 @@ on the memory disk `md0` (D41); the `swap` test relinks it with swap on `vd0b`.
 | `libsys`   | the system call stubs: `errno` and -1 (also as a pointer), numbers above 127, `pipe`, `sbrk`/`_brk`, `ptrace`'s cleared `errno`; the image then passes `fsutil --check` | `libsys ok`, exit status 0 |
 | `libsetjmp` | `setjmp`/`_setjmp` and their `longjmp`s restore `d2`-`d7`, `a2`-`a6` and `fp2`-`fp7`, turn 0 into 1, and restore the signal mask or not; `sigsetjmp` both ways | `libsetjmp ok`, exit status 0 |
 | `libendian` | byte order (D37): `<machine/endian.h>` says big-endian, as does a long's layout in memory; `htonl`/`ntohl` return their argument, `htons`/`ntohs` its low 16 bits | `libendian ok`, exit status 0 |
+| `libwait`  | `<sys/wait.h>` (D37): a child's exit code, `SIGTERM`, `SIGQUIT` with a core dump and a stop, through the `W*` macros and the `union wait` fields, and fields set by hand at the bits the kernel uses | `libwait ok`, exit status 0 |
 | `libsignal` | `sigaction` and the trampoline (D31): handler arguments and mask, every register back after a handler that clobbers them, `oact`, `SIG_IGN`, invalid signals | `libsignal ok`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
