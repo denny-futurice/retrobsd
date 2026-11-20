@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 #define	SPC	01
 #define	STP	02
@@ -184,7 +185,6 @@ _innum (int *ptr, int type, int len, int size, FILE *iop, int *eofptr)
 		return(0);
 	*np++ = 0;
 	switch((scale<<4) | size) {
-#if HAVE_FLOAT
 	case (FLOAT<<4) | SHORT:
 	case (FLOAT<<4) | REGULAR:
 		*(float*)ptr = atof(numbuf);
@@ -193,7 +193,6 @@ _innum (int *ptr, int type, int len, int size, FILE *iop, int *eofptr)
 	case (FLOAT<<4) | LONG:
 		*(double*)ptr = atof(numbuf);
 		break;
-#endif
 	case (INT<<4) | SHORT:
 		*(short*)ptr = lcval;
 		break;

@@ -4,8 +4,13 @@
 typedef union {
     double value;
     struct {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        uint32_t hi;
+        uint32_t lo;
+#else
         uint32_t lo;
         uint32_t hi;
+#endif
     } uns;
 } union64_t;
 

@@ -13,7 +13,7 @@ double  sinh(double), cosh(double), tanh(double);
 double  j0(double), j1(double), jn(int, double);
 double  y0(double), y1(double), yn(int, double);
 
-#define HUGE_VAL    3.40282347e+38 /* TBD??? use infinity? */
+#define HUGE_VAL    __builtin_huge_val()     /* +Inf (D44) */
 
 int isnanf(float x);
 int isnan(double x);

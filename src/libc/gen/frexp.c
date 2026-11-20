@@ -21,7 +21,9 @@ frexp(double x, int *i)
 		x = -x;
 		neg = 1;
 	}
-	if (x >= 1.0)
+	if (isinf(x))
+		;		/* x/2 is still inf: return it, exponent 0 */
+	else if (x >= 1.0)
 		while (x >= 1.0) {
 			j = j+1;
 			x = x/2;
