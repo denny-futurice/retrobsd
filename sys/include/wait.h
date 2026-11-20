@@ -22,6 +22,24 @@
  */
 union wait  {
     int     w_status;           /* used in syscall */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    /*
+     * Big-endian GCC allocates bit-fields from the most significant bit,
+     * so the fields come in the reverse order, after 16 bits of padding,
+     * to sit at the same bits of w_status as on little-endian (D37).
+     */
+    struct {
+        unsigned :16;
+        unsigned w_Retcode :8;  /* exit code if w_termsig==0 */
+        unsigned w_Coredump :1; /* core dump indicator */
+        unsigned w_Termsig :7;  /* termination signal */
+    } w_T;
+    struct {
+        unsigned :16;
+        unsigned w_Stopsig :8;  /* signal that stopped us */
+        unsigned w_Stopval :8;  /* == W_STOPPED if stopped */
+    } w_S;
+#else
     /*
      * Terminated process status.
      */
@@ -39,6 +57,7 @@ union wait  {
         unsigned w_Stopval :8;  /* == W_STOPPED if stopped */
         unsigned w_Stopsig :8;  /* signal that stopped us */
     } w_S;
+#endif
 };
 #define w_termsig   w_T.w_Termsig
 #define w_coredump  w_T.w_Coredump
@@ -60,15 +79,20 @@ union wait  {
 #define WNOHANG     1           /* dont hang in wait */
 #define WUNTRACED   2           /* tell about stopped, untraced children */
 
-#define WIFSTOPPED(x)   (((union wait*)&(x))->w_stopval == WSTOPPED)
-#define WIFSIGNALED(x)  (((union wait*)&(x))->w_stopval != WSTOPPED &&\
-                        (((union wait*)&(x))->w_termsig != 0))
-#define WIFEXITED(x)    (((union wait*)&(x))->w_stopval != WSTOPPED &&\
-                        (((union wait*)&(x))->w_termsig == 0))
-#define WEXITSTATUS(x)  (((union wait*)&(x))->w_retcode)
-#define WTERMSIG(x)     (((union wait*)&(x))->w_termsig)
-#define WCOREDUMP(x)    (((union wait*)&(x))->w_coredump)
-#define WSTOPSIG(x)     (((union wait*)&(x))->w_stopsig)
+/*
+ * The status macros take an int or a union wait and use shifts and masks,
+ * so they do not depend on the byte order (D37).
+ */
+#define _W_INT(x)       (*(int*)&(x))
+#define WIFSTOPPED(x)   ((_W_INT(x) & 0377) == WSTOPPED)
+#define WIFSIGNALED(x)  ((_W_INT(x) & 0377) != WSTOPPED && \
+                        (_W_INT(x) & 0177) != 0)
+#define WIFEXITED(x)    ((_W_INT(x) & 0377) != WSTOPPED && \
+                        (_W_INT(x) & 0177) == 0)
+#define WEXITSTATUS(x)  ((_W_INT(x) >> 8) & 0377)
+#define WTERMSIG(x)     (_W_INT(x) & 0177)
+#define WCOREDUMP(x)    ((_W_INT(x) >> 7) & 1)
+#define WSTOPSIG(x)     ((_W_INT(x) >> 8) & 0377)
 
 #define W_STOPCODE(sig)     ((sig << 8) | WSTOPPED)
 #define W_EXITCODE(ret,sig) ((ret << 8) | (sig))
