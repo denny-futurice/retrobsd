@@ -873,3 +873,42 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `libsignal` run a C `/sbin/init` linked with them. The signal `code`
   argument is only meaningful for hardware traps; after `kill` it is
   stale, as in 2.11BSD.
+
+## D43: 64-bit integer helpers from compiler-rt 12.0.0
+- **Context:** `src/libc/runtime/` holds compiler-rt 12.0.0 sources (plus
+  a `__mips__` alias edit in `int_lib.h` that m68k does not need, since
+  GCC defines `__ELF__`). The MIPS build used them for soft float and
+  64-bit division. With `-mcpu=68030 -m68881` GCC inlines 64-bit
+  multiply and most shifts and all 32-bit and FP arithmetic, but calls
+  `__divdi3`, `__moddi3`, `__udivdi3`, `__umoddi3`, the shifts
+  `__ashldi3`/`__ashrdi3`/`__lshrdi3` (by a variable count, at `-Os`
+  depending on context), and the conversions between 64-bit integers and
+  `float`/`double` (`__fix[uns]{s,d}fdi`, `__float[un]di{s,d}f`), which the
+  68881 does not have. Checked with `nm -u` on a probe at `-O0`, `-Os`
+  and `-O2`. `long double` (`xf`) conversions are also called, but no
+  built program uses `long double`, and compiler-rt's `xf` code assumes
+  the x86 80-bit layout. `__ctzdi2`, `__ffsdi2`, `__popcount*`,
+  `__paritysi2` come only from explicit builtins, which nothing uses.
+- **Decision:** `src/libc/runtime/Makefile` builds only those 16 helpers.
+  The ones missing from the tree (the shifts and the eight conversions)
+  are added from the `llvmorg-12.0.0` tag, unchanged, to match the other
+  files. The soft-float objects are no longer built (D12); their sources
+  stay as reference. The conversions use compiler-rt's hardware-FPU paths
+  (`__SOFT_FP__` is not defined).
+  - Licence: the compiler-rt files are Apache-2.0 WITH LLVM-exception
+    (their SPDX headers), as were the ones already in the tree.
+    `src/libc/runtime/LICENSE.txt` held only the older NCSA/MIT text, so
+    it is replaced by compiler-rt 12.0.0's `LICENSE.TXT` (Apache 2.0, the
+    LLVM exceptions and the legacy NCSA/MIT licence), as Apache 2.0
+    section 4(a) requires for redistributed sources. Apache 2.0 files may
+    sit in the BSD-licensed tree, each file keeping its licence. The LLVM
+    exception lifts 4(a), 4(b) and 4(d) for the helpers compiled into
+    programs, so binaries need no notice. Of the programs linked with
+    libc, `sre` is GPLv3 or later, which is compatible with Apache 2.0.
+- **Consequences:** the `libint64` smoke test checks every helper,
+  including ties to even and sticky bits in the conversions; the
+  68881's extended precision does not change the results, because the
+  helpers' intermediate sums are exact in extended precision. A program
+  using `long double` with 64-bit integers would fail to link (missing
+  `__floatdixf` etc.) until helpers written for the 68881 format are
+  added.

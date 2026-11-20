@@ -477,8 +477,14 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       and fields set by hand as `system()` does. All non-equivalent
       mutants are caught (masking `WIFSTOPPED` with 0177 differs only for
       signal 127)
-- [ ] Select the 64-bit integer runtime helpers from `src/libc/runtime/`
+- [x] Select the 64-bit integer runtime helpers from `src/libc/runtime/`
       (`divdi3`, `udivmoddi4`, ...); soft-float code is not used (D12)
+      Done (D43): the 16 helpers GCC calls (division and modulo, shifts,
+      64-bit integer to and from `float`/`double`); the shifts and
+      conversions are added from compiler-rt 12.0.0, the version already
+      in the tree. Soft-float objects are no longer built. Smoke test
+      `libint64`; removing any helper, the big-endian word order, a
+      conversion's sticky bit or its low word is caught
 - [ ] Audit FP-dependent libc/libm code (`atof`, `ecvt`/`gcvt`, `printf` `%f`,
       `libm`) for MIPS or soft-float assumptions; confirm hardware FP works.
       Word order is already checked (D37): the IEEE unions split a 64-bit

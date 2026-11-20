@@ -103,6 +103,8 @@
 #                 ntohl and ntohs
 #        libwait  <sys/wait.h> (D37): exit code, signal, core dump and stop
 #                 through the W* macros and union wait
+#        libint64 the 64-bit integer helpers (D43): division, shifts and
+#                 conversions to and from float and double
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -149,7 +151,7 @@ expected() {
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
     swap|mdswap) echo "swap ok" ;;
-    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait) echo "$1 ok" ;;
+    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64) echo "$1 ok" ;;
     esac
 }
 
@@ -464,7 +466,7 @@ run_test() {
     [ "$name" = rootfs ] && { run_rootfs; return; }
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
-    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait) run_libc $name; return ;; esac
+    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -560,7 +562,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
         consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
-        libcrt0 libstring libsys libsetjmp libsignal libendian libwait}; do
+        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64}; do
     run_test "$t" || status=1
 done
 exit $status
