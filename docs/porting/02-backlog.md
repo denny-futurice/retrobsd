@@ -417,11 +417,19 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       libc. Depends on the mount task and `elf2aout`.
       Done with the mount task: `smoke/rootinit.S` carried its own OMAGIC
       header at first; it now goes through `elf2aout`
-- [ ] Configure swap on `vd0b`; test that a process is swapped out and
+- [x] Configure swap on `vd0b`; test that a process is swapped out and
       back in. Depends on `init`. Swap on `vd0b` is configured and the
       boot-time swap-out and swap-in of process 1's u area work (`rootfs`);
       still to test: a user process with data and stack segments swapped
       out and back in, including while it sleeps (D38)
+      Done: smoke test `swap`. `/sbin/init` from `smoke/swapinit.c` (C,
+      raw `trap #0` syscalls) forks; parent and child take 8 turns over two
+      pipes, so each is swapped out and in while it sleeps, and both check
+      patterns in data, bss and stack; the six patterns are then found on
+      the swap partition. Fixed on the way (D40): `swap()` waits without a
+      context switch, as the `u`/`u0` exchange corrupted u areas in
+      flight. 5 mutations (the fix reverted, stack address, no stack
+      swap-out, the `vd` tail copy, the data address) are caught
 
 ## M5: Libc and userland
 - [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline

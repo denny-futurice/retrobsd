@@ -26,7 +26,7 @@ sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil` and `rootfs` tests
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil`, `rootfs` and `swap` tests
 also need a host `gcc` for the tools, and `fsutil` a host C compiler for its reader (`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
@@ -141,6 +141,7 @@ root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
 | `fsutil`   | host only, no QEMU: `tools/fsutil` writes a big-endian filesystem (D37) that `--check` passes cleanly and `bsdread.c`, an independent reader, reads back past block 65535 and through `..` | `PASS fsutil` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line, without a disk | `panic: No root filesystem found!`, exit status 0 |
 | `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, converted by `elf2aout`), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
+| `swap`     | as `rootfs`, with `/sbin/init` from `swapinit.c`: a parent and a child take turns over two pipes, so each is swapped out and in at every turn while it sleeps, and both check patterns in their data, bss and stack; afterwards all six patterns are on the swap partition and the image passes `fsutil --check` (D40) | `swap ok`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's

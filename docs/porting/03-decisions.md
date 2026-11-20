@@ -763,7 +763,8 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   - `swtch()` decides whether it runs in process 0 by whose u area is in
     `u` (`proc[0].p_addr == &u`), not by `u.u_procp`. In every other case
     the two tests agree.
-- **Consequences:** swap I/O may sleep anywhere it is done, which PIC32
+- **Consequences:** (superseded in part by D40: `swap()` no longer sleeps)
+  swap I/O may sleep anywhere it is done, which PIC32
   never exercised; later swap tests (M4) must cover a user process being
   swapped while it waits. The `rootfs` smoke test checks the boot-time
   swap; `vdbytes` checks partial sectors.
@@ -793,3 +794,27 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
 - **Consequences:** a.out files carry no symbols (`a_syms` is 0), as
   before. Kernel and userland ELF files cannot be run directly; QEMU loads
   the kernel ELF with `-kernel`, which does not involve `elf2aout`.
+
+## D40: `swap()` waits for its I/O without a context switch
+- **Context:** the `swap` smoke test (M4) forks a user process and swaps
+  parent and child out and in at every turn. The kernel restarted itself
+  after a few turns. `swap()` slept until the `vd` interrupt (D38), and
+  the sleep runs `swtch()`, which may `longjmp` to process 0 and so
+  exchange the contents of `u` and `u0`. Swap I/O moves the u area from
+  `p_addr` (`&u` in `newproc()`) or into `u0` (`swapin()`), and virtio
+  reads and writes that memory while the request is in flight, so the swap
+  image or the incoming u area could hold the other process's u. In
+  `newproc()` the sleep also runs with `u.u_procp` pointing at the child.
+  PIC32's `sd` finished every request inside the strategy routine, so
+  `swap()` never actually slept there. The bug depends on timing: with
+  gdb breakpoints in `longjmp` the test passed.
+- **Decision:** `swap()` waits for `B_DONE` by calling `idle()` (`stop`
+  at IPL 0) instead of `sleep()`, then sets `noproc` back to 0. No other
+  process runs during swap I/O, so `u` and `u0` stay put. Nothing is
+  lost: only one user process is in core, and swap I/O runs in it or in
+  process 0 (`sched()`). Other block I/O still sleeps. D38's `swtch()`
+  test of `proc[0].p_addr` stays.
+- **Consequences:** supersedes the D38 consequence that swap I/O may
+  sleep. Interrupts are still taken while waiting, but the time is
+  counted as idle. The `swap` smoke test checks a forked process's data,
+  bss and stack across swaps while it sleeps on a pipe.

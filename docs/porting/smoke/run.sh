@@ -79,6 +79,10 @@
 #                 its /sbin/init (rootinit.S through elf2aout), which
 #                 copies /etc/motd, past the direct blocks, to the console
 #                 and halts; the image still passes fsutil --check after
+#        swap     the same with swapinit.c: a parent and a child, swapped
+#                 out and in at every turn while they sleep on pipes, keep
+#                 their data, bss and stack (D38, D40); the patterns are on the
+#                 swap partition afterwards
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -124,6 +128,7 @@ expected() {
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
+    swap) echo "swap ok" ;;
     esac
 }
 
@@ -197,38 +202,79 @@ fsutil_clean() {
     fi
 }
 
-# rootfs: an image with an MBR, a 2 MB root and a 1 MB swap partition,
-# extended to its full 1 + 3072 KB (fsutil writes only up to the root).  The
-# root holds /dev/console, /sbin/init built from rootinit.S, and /etc/motd:
-# 100 filler lines and the expected line last, 6.5 KB, so the kernel reads
-# it through an indirect block.
-run_rootfs() {
-    d=$out/rootfs log=$out/rootfs-build.log
-    rm -rf "$d" && mkdir -p "$d/root/etc" "$d/root/sbin"
-    build_kernel rootfs || return 1
+# Root image tests.  prep_root builds the kernel, the tools and /sbin/init
+# from source $2 (assembler or C, through elf2aout) in $d/root, and sets d
+# and log.  make_image makes $d/disk.img: an MBR, a 2 MB root and a 1 MB
+# swap partition, extended to its full 1 + 3072 KB (fsutil writes only up
+# to the root).  The root holds /dev/console, /sbin/init and the files of
+# $d/root named by the manifest lines given.  boot_image boots it, expects
+# a halt, and checks the image with fsutil afterwards.
+prep_root() {
+    d=$out/$1 log=$out/$1-build.log
+    rm -rf "$d" && mkdir -p "$d/root/sbin"
+    build_kernel "$1" || return 1
     if ! { make -C "$top/tools/fsutil" &&
            make -C "$top/tools/elf2aout" &&
-           ${CROSS}gcc $CFLAGS -c "$here/rootinit.S" -o "$d/rootinit.o" &&
-           ${CROSS}ld -T "$top/src/elf32-m68k.ld" "$d/rootinit.o" -o "$d/rootinit.elf" &&
-           "$top/tools/elf2aout/elf2aout" "$d/rootinit.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
-        echo "FAIL rootfs: build failed, see $log" >&2
+           ${CROSS}gcc $CFLAGS -c "$here/$2" -o "$d/init.o" &&
+           ${CROSS}ld -T "$top/src/elf32-m68k.ld" "$d/init.o" -o "$d/init.elf" &&
+           "$top/tools/elf2aout/elf2aout" "$d/init.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
+        echo "FAIL $1: build failed, see $log" >&2
         tail -20 "$log" >&2
         return 1
     fi
-    { awk 'BEGIN { for (i = 1; i <= 100; i++) printf "filler line %03d %48s\n", i, "" }'
-      expected rootfs; } >"$d/root/etc/motd"
+}
+make_image() {
+    name=$1; shift
     printf '%s\n' default 'owner 0' 'group 0' 'dirmode 0775' 'filemode 0664' \
-        'dir /dev' 'dir /etc' 'dir /sbin' 'cdev /dev/console' 'major 0' 'minor 0' \
-        'file /etc/motd' 'file /sbin/init' 'mode 0700' >"$d/manifest"
+        'dir /dev' 'dir /sbin' 'cdev /dev/console' 'major 0' 'minor 0' \
+        "$@" 'file /sbin/init' 'mode 0700' >"$d/manifest"
     fsutil="timeout 60 $top/tools/fsutil/fsutil"
     { $fsutil --repartition=fs=2M:swap=1M "$d/disk.img" &&
       $fsutil --new --partition=1 --manifest="$d/manifest" "$d/disk.img" "$d/root" &&
       dd if=/dev/zero of="$d/disk.img" bs=1024 count=0 seek=3073 2>/dev/null; } >>"$log" 2>&1 ||
-        { echo "FAIL rootfs: creating the image failed, see $log" >&2; return 1; }
-    check_result rootfs "$(run_qemu "$board/unix.elf" \
+        { echo "FAIL $name: creating the image failed, see $log" >&2; return 1; }
+}
+boot_image() {
+    check_result "$1" "$(run_qemu "$board/unix.elf" \
         -drive file="$d/disk.img",if=none,format=raw,id=a -device virtio-blk-device,drive=a)" \
         halts || return 1
-    fsutil_clean rootfs "$d/disk.img"
+    fsutil_clean "$1" "$d/disk.img"
+}
+
+# rootfs: /sbin/init from rootinit.S, and /etc/motd: 100 filler lines and
+# the expected line last, 6.5 KB, so the kernel reads it through an
+# indirect block.
+run_rootfs() {
+    prep_root rootfs rootinit.S || return 1
+    mkdir -p "$d/root/etc"
+    { awk 'BEGIN { for (i = 1; i <= 100; i++) printf "filler line %03d %48s\n", i, "" }'
+      expected rootfs; } >"$d/root/etc/motd"
+    make_image rootfs 'dir /etc' 'file /etc/motd' || return 1
+    boot_image rootfs
+}
+
+# swap: /sbin/init from swapinit.c, a parent and a child that are swapped
+# out and in at every turn.  Afterwards the swap partition (the second MBR
+# entry) must hold the first 16 bytes of each of the six patterns, as
+# swapinit.c's first() and step() make them.
+run_swap() {
+    prep_root swap swapinit.c || return 1
+    make_image swap || return 1
+    boot_image swap || return 1
+    set -- $(od -An -v -tu1 -j 470 -N 8 "$d/disk.img")
+    dd if="$d/disk.img" of="$d/swap.part" bs=512 skip=$(($1 + 256 * $2 + 65536 * $3)) \
+        count=$(($5 + 256 * $6 + 65536 * $7)) 2>/dev/null
+    hex=$(od -An -v -tx1 "$d/swap.part" | tr -d ' \n')
+    for p in 0 1; do
+        for a in 0 1 2; do
+            v=$((0x10 + 0x40 * p + 0x10 * a)) s=$((3 + 2 * (3 * p + a))) pat=
+            for i in $(seq 16); do pat=$pat$(printf %02x $((v & 255))); v=$((v + s)); done
+            case "$hex" in
+            *"$pat"*) ;;
+            *) echo "FAIL swap: pattern $p/$a ($pat) not on the swap partition" >&2; return 1 ;;
+            esac
+        done
+    done
 }
 
 # The vd test disks (vdstub.h): every sector holds 64 lines "%07d\n" of
@@ -352,6 +398,7 @@ run_test() {
     [ "$name" = elf2aout ] && { run_elf2aout; return; }
     [ "$name" = fsutil ] && { run_fsutil; return; }
     [ "$name" = rootfs ] && { run_rootfs; return; }
+    [ "$name" = swap ] && { run_swap; return; }
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -445,7 +492,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes elf2aout fsutil kernel rootfs}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes elf2aout fsutil kernel rootfs swap}; do
     run_test "$t" || status=1
 done
 exit $status
