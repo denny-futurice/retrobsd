@@ -19,32 +19,28 @@ include $(TOPSRC)/target.mk
 
 CFLAGS          += ${DEFS}
 
-OBJS            = adddf3.o \
-                  addsf3.o \
-                  comparedf2.o \
-                  comparesf2.o \
-                  divdf3.o \
-                  divdi3.o \
-                  divsf3.o \
-                  extendsfdf2.o \
-                  fixdfsi.o \
-                  fixsfsi.o \
-                  fixunssfsi.o \
-                  fixunsdfsi.o \
-                  floatsidf.o \
-                  floatsisf.o \
-                  floatunsisf.o \
-                  fp_mode.o \
+# The 64-bit integer helpers GCC calls for m68k with -m68881 (D43):
+# division and modulo, shifts by a variable count (inline or not, as -Os
+# sees fit), and conversions between 64-bit integers and float or double,
+# which the 68881 lacks.  Multiply is inline.  The soft-float sources are
+# not built (D12); the conversions use their hardware FPU paths (GCC does
+# not define __SOFT_FP__).  Sources are compiler-rt 12.0.0, unchanged.
+OBJS            = divdi3.o \
                   moddi3.o \
-                  muldf3.o \
-                  mulsf3.o \
-                  subdf3.o \
-                  subsf3.o \
-                  truncdfsf2.o \
                   udivdi3.o \
                   udivmoddi4.o \
                   umoddi3.o \
-		  floatunsidf.o
+                  ashldi3.o \
+                  ashrdi3.o \
+                  lshrdi3.o \
+                  fixdfdi.o \
+                  fixsfdi.o \
+                  fixunsdfdi.o \
+                  fixunssfdi.o \
+                  floatdidf.o \
+                  floatdisf.o \
+                  floatundidf.o \
+                  floatundisf.o
 
 runtime.a:      ${OBJS}
 		@echo "buiding runtime.a"
