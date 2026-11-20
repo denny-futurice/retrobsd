@@ -18,6 +18,22 @@ Documentation lives in the [project wiki](https://github.com/RetroBSD/retrobsd/w
 > (QEMU `virt` first). PIC32 support is not maintained there. See
 > [docs/porting/](docs/porting/README.md). The rest of this README describes the PIC32 system.
 
+### Trying the m68k port
+
+Install the cross compiler and QEMU as described in [docs/porting/](docs/porting/README.md)
+(Debian: `gcc-m68k-linux-gnu`, `qemu-system-misc`), plus the host build tools from step 1 below.
+[boot-retrobsd.sh](boot-retrobsd.sh) builds the tools, kernel, userland and
+`sdcard.img`, checks the filesystem and boots it in QEMU (`virt`, 68030) on your terminal:
+
+```shell
+./boot-retrobsd.sh            # build, then boot
+./boot-retrobsd.sh -n         # boot the existing build without rebuilding
+./boot-retrobsd.sh -m 32M     # guest RAM (default 16M)
+```
+
+Log in as `root` with an empty password; quit QEMU with Ctrl-A x. The script boots a scratch copy
+of `sdcard.img`, so changes made in the guest are discarded.
+
 ## Quick start
 
 No hardware needed — you can build the system and boot it in a simulator in about five minutes.
