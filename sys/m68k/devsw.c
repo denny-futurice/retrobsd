@@ -33,6 +33,9 @@
 #ifdef VD_ENABLED
 #   include <machine/vd.h>
 #endif
+#ifdef MD_ENABLED
+#   include <machine/md.h>
+#endif
 
 /*
  * Null routine; placed in insignificant entries
@@ -76,8 +79,13 @@ const struct bdevsw bdevsw[] = {
     NOBDEV
 #endif
 },
-{   /* 1 - unused (PIC32 sramc) */
+{   /* 1 - md: memory disk for swap (D41) */
+#ifdef MD_ENABLED
+    mdopen,         mdclose,        mdstrategy,
+    mdsize,         mdioctl,
+#else
     NOBDEV
+#endif
 },
 {   /* 2 - unused (PIC32 sdramp) */
     NOBDEV

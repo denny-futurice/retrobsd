@@ -3,6 +3,7 @@ PARAM += -DM68030
 PARAM += -DGFTTY_ENABLED
 PARAM += -DVD_ENABLED
 PARAM += -DVD1_ENABLED
+PARAM += -DMD_ENABLED
 PARAM += -DCONS_MINOR=0
 PARAM += -DCONS_MAJOR=UART_MAJOR
 PARAM += -DFPU_NO_FSAVE
@@ -51,8 +52,8 @@ OBJS = exec_aout.o exec_conf.o exec_script.o exec_subr.o init_main.o \
 	ufs_dsort.o ufs_fio.o ufs_inode.o ufs_mount.o ufs_namei.o \
 	ufs_subr.o ufs_syscalls.o ufs_syscalls2.o vfs_vnops.o vm_sched.o \
 	vm_swap.o vm_swp.o clock.o cons.o devsw.o gftty.o vd.o \
-	disklabel.o machdep.o mem.o signal.o swap.o sysctl.o locore.o \
-	trap.o 
+	disklabel.o md.o machdep.o mem.o signal.o swap.o sysctl.o \
+	locore.o trap.o 
 
 CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c \
 	$S/kernel/exec_script.c $S/kernel/exec_subr.c \
@@ -76,8 +77,8 @@ CFILES = $S/kernel/exec_aout.c $S/kernel/exec_conf.c \
 	$S/kernel/vfs_vnops.c $S/kernel/vm_sched.c $S/kernel/vm_swap.c \
 	$S/kernel/vm_swp.c $S/m68k/clock.c $S/m68k/cons.c \
 	$S/m68k/devsw.c $S/m68k/gftty.c $S/m68k/vd.c $S/m68k/disklabel.c \
-	$S/m68k/machdep.c $S/m68k/mem.c $S/m68k/signal.c $S/m68k/swap.c \
-	$S/m68k/sysctl.c $S/m68k/trap.c swapunix.c 
+	$S/m68k/md.c $S/m68k/machdep.c $S/m68k/mem.c $S/m68k/signal.c \
+	$S/m68k/swap.c $S/m68k/sysctl.c $S/m68k/trap.c swapunix.c 
 
 # load lines for config "xxx" will be emitted as:
 # xxx: ${SYSTEM_OBJ} swapxxx.o ${SYSTEM_DEP}
@@ -297,6 +298,9 @@ vd.o: $S/m68k/vd.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 disklabel.o: $S/m68k/disklabel.c ${SYSTEM_DEP}
+	${COMPILE_C}
+
+md.o: $S/m68k/md.c ${SYSTEM_DEP}
 	${COMPILE_C}
 
 machdep.o: $S/m68k/machdep.c ${SYSTEM_DEP}
