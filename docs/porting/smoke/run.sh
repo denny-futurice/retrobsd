@@ -107,6 +107,8 @@
 #                 conversions to and from float and double
 #        libfp    floating point in libc and libm (D44): printf, scanf, atof,
 #                 strtod, ecvt, frexp, ldexp, HUGE_VAL and the libm functions
+#        userland the top-level make: tools, kernel, userland and sdcard.img
+#                 (D45); every manifest file exists, fsutil --check is clean
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -461,6 +463,27 @@ build() {
     "$@" >>"$log" 2>&1 || buildfail=yes
 }
 
+# userland: the top-level make builds the tools, kernel and userland,
+# installs them into the tree and makes sdcard.img (D45).  fsutil only
+# warns about a missing manifest file, so any warning fails the test; a
+# copy of the image must then pass fsutil --check.
+run_userland() {
+    log=$out/userland.log
+    if ! make -C "$top" -j"$(nproc 2>/dev/null || echo 2)" >"$log" 2>&1; then
+        echo "FAIL userland: make failed, see $log" >&2
+        grep -E ': error:|Error [0-9]' "$log" | head -20 >&2
+        return 1
+    fi
+    if grep -q 'No such file or directory' "$log"; then
+        echo "FAIL userland: rootfs.manifest names files that were not installed:" >&2
+        grep 'No such file or directory' "$log" | head -20 >&2
+        return 1
+    fi
+    cp "$top/sdcard.img" "$out/userland.img"
+    fsutil_clean userland "$out/userland.img" || return 1
+    echo "PASS userland"
+}
+
 run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
@@ -469,6 +492,7 @@ run_test() {
     [ "$name" = rootfs ] && { run_rootfs; return; }
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
+    [ "$name" = userland ] && { run_userland; return; }
     case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
@@ -565,7 +589,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
         consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
-        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp}; do
+        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp userland}; do
     run_test "$t" || status=1
 done
 exit $status

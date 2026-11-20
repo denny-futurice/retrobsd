@@ -494,7 +494,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       (`HAVE_FLOAT`), `ldexp` no longer overflows at 2^1023, and
       `frexp(Inf)` no longer loops. Smoke test `libfp`; reverting each
       fix is caught
-- [ ] Build the reduced userland and the full root filesystem image;
+- [x] Build the reduced userland and the full root filesystem image;
       `fsutil --check` passes. Rename the disk nodes in `rootfs.manifest`
       and `etc/fstab` from `sd` to `vd` (D36). Drop the entries for
       programs disabled in `src/cmd/Makefile` from `rootfs.manifest`: the
@@ -506,11 +506,16 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       (`src/cmd/Makefile` `SUBDIR`) with their manifest entries, data
       files and man pages: their data files are little-endian (D37) and
       come back in M6
-- [ ] Fix `-Werror` failures in `src/cmd` and `src/games` as they are built.
+      Done (D45): `make` builds everything and the image passes
+      `fsutil --check`; smoke test `userland`
+- [x] Fix `-Werror` failures in `src/cmd` and `src/games` as they are built.
       Already seen: `src/libc/net/rcmd.c` (missing `sys/socket.h`; `net` is
       not built), `games/warp/sig.c` (`gtty`), `games/hunt/driver.c`
       (`#else` tokens), `cmd/mail.c` and `cmd/cron/popen.c`
       (`-Wparentheses`)
+      Done (D45): those are not built or now pass; the failures fixed were
+      the `linux` macros, noreturn `exit`/`abort`, `abs`/`labs`/`fabs`,
+      `scm`, `backgammon` and the big-endian `tip` union
 - [ ] Per-process memory limit: `MAXMEM` in `sys/include/param.h` is
       96 KB (PIC32 heritage), but the m68k user window is 256 KB
       (`USER_DATA_START`-`USER_DATA_END`). `exec_subr.c` refuses programs

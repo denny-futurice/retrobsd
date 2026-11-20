@@ -960,3 +960,49 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   - Remaining known limits, not port-specific: `ldexp` flushes results
     below `DBL_MIN_EXP - 2` to 0 (no denormals), `sqrt(Inf)` is NaN, and
     there is no `long double` libm.
+
+## D45: building the userland and the root image
+
+- **Context:** the M5 task builds the reduced userland with GCC and packs it
+  into `sdcard.img`. The first full build showed:
+  - `m68k-linux-gnu-gcc` predefines `linux`, `__linux`, `__linux__` and
+    `__gnu_linux__`; `virus` took its Linux branch and wanted `termios.h`.
+  - With `-ffreestanding`, GCC knows nothing about `exit`/`abort` being
+    noreturn, so `basic`, `viless`, and flex scanners (`awk`, `atc`) fail
+    `-Werror=return-type`; and `abs`/`labs`/`fabs` are not built-ins, so
+    the calls need libc, which had no `abs`, `labs` or `fabs` objects.
+  - `tip`'s `zzhack` union read `short`/`char` members out of a
+    `char *` set to `(char *)TRUE`; on a big-endian CPU those are the
+    high bytes, i.e. 0. Every boolean and character variable was off.
+  - A few new GCC warnings (`-Wmisleading-indentation` in `scm`,
+    `-Wint-in-bool-context` in `backgammon`).
+  - `rootfs.manifest` still listed PIC32 devices, the native toolchain
+    (D8), the PIC32 hardware programs (D18) and PIC32 machine headers.
+- **Decision:**
+  - `target.mk` undefines the four `linux` macros for userland, and the
+    clangd `compile_flags.txt` files follow. The kernel does not test them.
+  - `exit`, `_exit` and `abort` are declared
+    `__attribute__((__noreturn__))`; libc gains `abs.o`, `labs.o` and
+    `fabs.o`.
+  - `tip`'s `zz_boolean`/`zz_character` become `int`, the size of the
+    pointer they alias, and `tip` builds with `-fno-strict-aliasing`.
+  - `scm` and `backgammon` are fixed in place.
+  - `retroforth`, `adventure`, `fortune` and `monop` stay out of the build
+    and the manifest (little-endian data files, D37); they come back in M6.
+  - `src install` installs `termcap.small` as `/etc/termcap` (avoiding the
+    host `ex` run that rebuilds `termcap.full`) and the `libvmf` and
+    `libgpanel` man pages.
+  - The manifest's devices follow `sys/m68k/devsw.c`: `vd0`/`vd1` with
+    partitions a-d, `md0`, `swap*`, the character devices of majors 0-6
+    with one `tty0` (`NGFTTY` is 1) and the ptys. `/include/machine` lists
+    the m68k headers. `etc/fstab` mounts `vd0`; `etc/ttys` has `tty0` only.
+  - The top-level `make` builds the kernel in `sys/m68k/virt`.
+- **Consequences:**
+  - `make` at the top builds tools, kernel, userland and `sdcard.img`;
+    `fsutil --check` is clean, and the image boots to multi-user in QEMU
+    (login as root, `ls`, `ps`, `df`, `bc` work by hand).
+  - Smoke test `userland`: runs the top-level make, fails on any manifest
+    file that was not installed and checks the image with `fsutil`.
+    Reverting each fix above (or adding a bogus manifest entry) is caught.
+  - Still PIC32-flavoured: `/etc/rc` sets hostname `pic32`, and
+    `etc/MAKEDEV` knows `sd*` only.
