@@ -26,8 +26,8 @@ sudo apt install gcc-m68k-linux-gnu binutils-m68k-linux-gnu qemu-system-misc gdb
 
 Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 `m68k-linux-gnu-` one, used freestanding, and `qemu-system-m68k` comes from
-`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `fsutil` test also needs a host C compiler
-(`cc`, or set `HOSTCC`). Verified versions are listed in
+`qemu-system-misc`. `gdb-multiarch` is only needed for debugging; the `elf2aout`, `fsutil` and `rootfs` tests
+also need a host `gcc` for the tools, and `fsutil` a host C compiler for its reader (`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
 ## Editor setup (clangd)
@@ -137,9 +137,10 @@ root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
 | `vdwrite` | writes reach the disk through the raw disk and a partition; sector 0 and a read-only disk refuse them | `vdwrite ok` |
 | `vdpart`  | MBR partitions (`disklabel.c`): entries, offsets, EOF and truncation at the end, missing partitions, a disk without an MBR | `vdpart ok` |
 | `vdbytes` | transfers of part of a sector, as swap does: a partial last sector read without touching memory past the count, written zero padded (D38) | `vdbytes ok` |
+| `elf2aout` | host only, no QEMU: `tools/elf2aout` turns an m68k ELF (`aoutprog.S`) into an a.out whose big-endian header matches the section headers and whose image matches `objcopy -O binary`; an object file and little-endian, non-m68k and shared-object ELF files are refused (D39) | `PASS elf2aout` |
 | `fsutil`   | host only, no QEMU: `tools/fsutil` writes a big-endian filesystem (D37) that `--check` passes cleanly and `bsdread.c`, an independent reader, reads back past block 65535 and through `..` | `PASS fsutil` |
 | `kernel`   | the whole kernel builds and boots to the M2 finish line, without a disk | `panic: No root filesystem found!`, exit status 0 |
-| `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, a hand-built a.out), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
+| `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, converted by `elf2aout`), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's

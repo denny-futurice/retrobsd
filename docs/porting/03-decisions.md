@@ -767,3 +767,29 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   never exercised; later swap tests (M4) must cover a user process being
   swapped while it waits. The `rootfs` smoke test checks the boot-time
   swap; `vdbytes` checks partial sectors.
+
+## D39: User programs stay a.out; `elf2aout` reads only m68k ELF
+- **Context:** the backlog asked for "the m68k a.out magic" in
+  `elf2aout`, for a choice between converting and dropping the kernel's
+  ELF loader, and for a choice on the `-s` symbol-file mode. `exec_aout.c`
+  accepts only machine ID 0 (`MID_ZERO`) with OMAGIC; the BSD m68k
+  machine IDs (`MID_M68K`, `MID_M68K4K`) describe 8 KB and 4 KB page
+  layouts that do not apply without an MMU. `exec_elf.c` loads only one
+  read-write-execute `PT_LOAD` segment, so it refuses the two segments
+  `src/elf32-m68k.ld` makes, refuses programs without bss, and checks for
+  little-endian MIPS. `-s` writes 4.4BSD `nlist` records that libc
+  `nlist()` cannot parse, and no Makefile uses it.
+- **Decision:**
+  - User programs are OMAGIC a.out with machine ID 0, as on PIC32; only
+    the header's byte order changes (D37).
+  - `elf2aout` reads every ELF field through big-endian helpers, so it
+    gives the same output on any host, and refuses anything but a
+    32-bit big-endian `EM_68K` executable with program headers. `-s` and
+    the symbol translation are removed; the section headers are not
+    read.
+  - `exec_elf.c` stays in the tree but is out of the m68k kernel: it is
+    `optional exec_elf` in `files.kconf`, and its `execsw` entry is
+    under `#ifdef EXEC_ELF`. Fixing it is the lowest priority M6 task.
+- **Consequences:** a.out files carry no symbols (`a_syms` is 0), as
+  before. Kernel and userland ELF files cannot be run directly; QEMU loads
+  the kernel ELF with `-kernel`, which does not involve `elf2aout`.

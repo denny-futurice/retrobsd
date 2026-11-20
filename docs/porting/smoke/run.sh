@@ -67,13 +67,16 @@
 #                 disk refuse them
 #        vdpart   vd.c, disklabel.c: MBR partitions, offsets and bounds
 #        vdbytes  vd.c: transfers of part of a sector, as swap does (D38)
+#        elf2aout host test, no QEMU: tools/elf2aout turns an m68k ELF
+#                 (aoutprog.S) into an a.out with a big-endian header and
+#                 the image objcopy gives; other ELF files are refused
 #        fsutil   host test, no QEMU: tools/fsutil writes a big-endian file
 #                 system (D37) that --check passes and the independent reader
 #                 bsdread.c reads back, past block 65535 and through ".."
 #        kernel   the whole kernel boots to the M2 root filesystem panic
 #                 when it has no disk
 #        rootfs   the kernel mounts an fsutil image as root on vd0a, runs
-#                 its /sbin/init (rootinit.S, a hand-built a.out), which
+#                 its /sbin/init (rootinit.S through elf2aout), which
 #                 copies /etc/motd, past the direct blocks, to the console
 #                 and halts; the image still passes fsutil --check after
 #
@@ -203,11 +206,11 @@ run_rootfs() {
     d=$out/rootfs log=$out/rootfs-build.log
     rm -rf "$d" && mkdir -p "$d/root/etc" "$d/root/sbin"
     build_kernel rootfs || return 1
-    user=$(awk '$1 == "USER_DATA_START" { sub(";", "", $3); print $3 }' "$top/src/elf32-m68k.ld")
     if ! { make -C "$top/tools/fsutil" &&
+           make -C "$top/tools/elf2aout" &&
            ${CROSS}gcc $CFLAGS -c "$here/rootinit.S" -o "$d/rootinit.o" &&
-           ${CROSS}ld -static -Ttext=$(printf 0x%x $((user - 32))) "$d/rootinit.o" -o "$d/rootinit.elf" &&
-           ${CROSS}objcopy -O binary "$d/rootinit.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
+           ${CROSS}ld -T "$top/src/elf32-m68k.ld" "$d/rootinit.o" -o "$d/rootinit.elf" &&
+           "$top/tools/elf2aout/elf2aout" "$d/rootinit.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
         echo "FAIL rootfs: build failed, see $log" >&2
         tail -20 "$log" >&2
         return 1
@@ -250,6 +253,52 @@ make_disks() {
     pattern 0 1024 >"$out/diskb.img"
     printf '[inject-error]\nevent = "read_aio"\nerrno = "5"\nsector = "2000"\n' \
         >"$out/diska.dbg"
+}
+
+# elf2aout: convert aoutprog.S, linked as a program, and check the header
+# against the section headers (text runs up to the data, gap included)
+# and the image against objcopy's.  An object file and, with header bytes
+# patched, a little-endian, a non-m68k and a shared-object ELF are refused.
+run_elf2aout() {
+    log=$out/elf2aout.log d=$out/elf2aout
+    rm -rf "$d" && mkdir -p "$d"
+    e2a=$top/tools/elf2aout/elf2aout
+    if ! { make -C "$top/tools/elf2aout" &&
+           ${CROSS}gcc $CFLAGS -c "$here/aoutprog.S" -o "$d/prog.o" &&
+           ${CROSS}ld -T "$top/src/elf32-m68k.ld" "$d/prog.o" -o "$d/prog.elf" &&
+           ${CROSS}objcopy -O binary "$d/prog.elf" "$d/prog.bin"; } >"$log" 2>&1; then
+        echo "FAIL elf2aout: build failed, see $log" >&2
+        tail -20 "$log" >&2
+        return 1
+    fi
+    "$e2a" "$d/prog.elf" "$d/prog" >>"$log" 2>&1 ||
+        { echo "FAIL elf2aout: conversion failed, see $log" >&2; return 1; }
+    # Address and end of a section, from objdump -h.
+    sect() { ${CROSS}objdump -h "$d/prog.elf" |
+        awk -v s="$1" '$2 == s { printf "0x%s 0x%s\n", $4, $3 }'; }
+    set -- $(sect .text); text=$1
+    set -- $(sect .data); data=$1 edata=$(($1 + $2))
+    set -- $(sect .bss); end=$(($1 + $2))
+    entry=0x$(${CROSS}nm "$d/prog.elf" | awk '$3 == "_start" { print $1 }')
+    want=$(printf '%08x' 0407 $((data - text)) $((edata - data)) \
+        $((end - edata)) 0 0 0 $entry)
+    got=$(od -An -tx1 -N32 "$d/prog" | tr -d ' \n')
+    [ "$got" = "$want" ] ||
+        { echo "FAIL elf2aout: header $got, expected $want" >&2; return 1; }
+    tail -c +33 "$d/prog" | cmp -s "$d/prog.bin" - ||
+        { echo "FAIL elf2aout: image differs from objcopy -O binary" >&2; return 1; }
+    patch() { cp "$d/prog.elf" "$d/$1.elf"; printf "$3" |
+        dd of="$d/$1.elf" bs=1 seek=$2 conv=notrunc 2>/dev/null; }
+    patch little 5 '\001'
+    patch mips 18 '\000\010'
+    patch shared 16 '\000\003'
+    for f in prog.o little.elf mips.elf shared.elf; do
+        if "$e2a" "$d/$f" "$d/bad" >>"$log" 2>&1; then
+            echo "FAIL elf2aout: $f was converted" >&2; return 1
+        fi
+    done
+    rm -rf "$d"
+    echo "PASS elf2aout"
 }
 
 # fsutil: a 100 MB root partition holding a directory of 60 files, a
@@ -300,6 +349,7 @@ build() {
 run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
+    [ "$name" = elf2aout ] && { run_elf2aout; return; }
     [ "$name" = fsutil ] && { run_fsutil; return; }
     [ "$name" = rootfs ] && { run_rootfs; return; }
     log=$out/$name-build.log buildfail=
@@ -395,7 +445,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes fsutil kernel rootfs}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes elf2aout fsutil kernel rootfs}; do
     run_test "$t" || status=1
 done
 exit $status

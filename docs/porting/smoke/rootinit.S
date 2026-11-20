@@ -1,8 +1,7 @@
 /*
- * /sbin/init for the rootfs test: a hand-built a.out (OMAGIC, D37
- * big-endian header) whose header is the first 32 bytes of this file, so
- * no elf2aout is needed.  run.sh links it with text at USER_DATA_START - 32
- * and copies it out as a raw binary.
+ * /sbin/init for the rootfs test.  run.sh links it with src/elf32-m68k.ld
+ * and converts it with tools/elf2aout, so the boot loads an a.out with
+ * text, data and bss.
  *
  * It opens the console, copies /etc/motd to it, and halts with
  * reboot(RB_HALT).  On an error it exits with errno, which panics the
@@ -21,14 +20,6 @@
 
         .text
         .globl  _start
-header:
-        .long   0407                    /* a_midmag: OMAGIC, MID_ZERO */
-        .long   0                       /* a_text */
-        .long   end - _start            /* a_data */
-        .long   BUFSIZE                 /* a_bss: buf */
-        .long   0, 0, 0                 /* a_reltext, a_reldata, a_syms */
-        .long   _start                  /* a_entry */
-
 _start:
         move.l  #O_RDWR, -(%sp)         /* d6 = open("/dev/console", O_RDWR) */
         pea     console(%pc)
@@ -81,10 +72,13 @@ fail:
         moveq   #SYS_exit, %d0
         trap    #0
 
+        .data
 console:
         .asciz  "/dev/console"
 motd:
         .asciz  "/etc/motd"
+
+        .bss
         .balign 4
-end:
-buf:                                    /* bss, past the loaded image */
+buf:
+        .space  BUFSIZE

@@ -391,7 +391,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       (D38): `vd` takes byte counts that are not whole sectors (test
       `vdbytes`), and `swtch()` no longer mistakes process 0 for a user
       process while the boot-time `newproc()` swap-out sleeps
-- [ ] `elf2aout` for m68k (D37): read big-endian ELF32 with `EM_68K`;
+- [x] `elf2aout` for m68k (D37, D39): read big-endian ELF32 with `EM_68K`;
       write the a.out header and symbol table big-endian; set the m68k
       a.out magic. In the kernel, `exec_elf.c` checks `ELFDATA2LSB` and
       `EM_MIPS`: change it to `ELFDATA2MSB`/`EM_68K`, or drop the ELF exec
@@ -400,13 +400,23 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       unconverted or remove it. Host test: convert a smoke-test ELF and
       check the header fields. Then build `smoke/rootinit.S` through
       `elf2aout` instead of its hand-written a.out header
+      Done (D39). `elf2aout` reads every ELF field and writes the header
+      through big-endian helpers and refuses anything but a 32-bit
+      big-endian `EM_68K` executable; the header stays OMAGIC with
+      machine ID 0; `-s` and the symbol translation are removed, and the
+      section headers are no longer read. `exec_elf.c` stays in the tree
+      but builds only with `options "EXEC_ELF"`. The `elf2aout` smoke
+      test converts `aoutprog.S` (entry past the start, a gap before the
+      data, odd sizes) and checks the header and the image; 7 mutations
+      of `elf2aout.c` are caught. `rootinit.S` now has text, data and bss
+      and goes through `elf2aout`
 - [x] Run a static `init` as a user process (fixed user region, no MMU),
       moved from M3 (D21): a freestanding test `/sbin/init` (smoke-test
       style, raw `trap #0` syscalls) on the root image, which opens the
       console and writes to it. The real `/sbin/init` follows with the M5
       libc. Depends on the mount task and `elf2aout`.
-      Done with the mount task: `smoke/rootinit.S` carries its own OMAGIC
-      header, so it did not wait for `elf2aout`
+      Done with the mount task: `smoke/rootinit.S` carried its own OMAGIC
+      header at first; it now goes through `elf2aout`
 - [ ] Configure swap on `vd0b`; test that a process is swapped out and
       back in. Depends on `init`. Swap on `vd0b` is configured and the
       boot-time swap-out and swap-in of process 1's u area work (`rootfs`);
@@ -495,5 +505,6 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       without bss); and it checks `ELFDATA2LSB`/`EM_MIPS`. Fix: accept
       `ELFDATA2MSB`/`EM_68K`, load each `PT_LOAD` (text and data/bss
       inside the fixed user region), and allow `p_filesz == p_memsz`.
+      It builds only with `options "EXEC_ELF"` (D39).
       Cost: ELF headers and section tables make files on the root image
       larger
