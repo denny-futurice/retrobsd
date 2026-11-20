@@ -66,10 +66,16 @@
 #        vdwrite  vd.c: writes reach the disk; sector 0 and a read-only
 #                 disk refuse them
 #        vdpart   vd.c, disklabel.c: MBR partitions, offsets and bounds
+#        vdbytes  vd.c: transfers of part of a sector, as swap does (D38)
 #        fsutil   host test, no QEMU: tools/fsutil writes a big-endian file
 #                 system (D37) that --check passes and the independent reader
 #                 bsdread.c reads back, past block 65535 and through ".."
 #        kernel   the whole kernel boots to the M2 root filesystem panic
+#                 when it has no disk
+#        rootfs   the kernel mounts an fsutil image as root on vd0a, runs
+#                 its /sbin/init (rootinit.S, a hand-built a.out), which
+#                 copies /etc/motd, past the direct blocks, to the console
+#                 and halts; the image still passes fsutil --check after
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -111,9 +117,10 @@ expected() {
     uill|upriv|utrace|udivz|buserr|ufpe|fpbiu|tick|callout|todr|\
     sysargs|sysret|sysrestart|nosys|msec|execstack|execclear|pipe2|ptrace|\
     sigframe|sigreturn|sigfpu|sigfault|uentry|icode|ttyrx|ttyrxopen|intrnest|\
-    consdev|errmsg|nlist|vdprobe|vdread|vdwrite|vdpart) echo "$1 ok" ;;
+    consdev|errmsg|nlist|vdprobe|vdread|vdwrite|vdpart|vdbytes) echo "$1 ok" ;;
     halt) echo "halted" ;;
     kernel) echo "panic: No root filesystem found!" ;;
+    rootfs) echo "rootfs ok: end of /etc/motd" ;;
     esac
 }
 
@@ -160,14 +167,65 @@ check_result() {
     esac
 }
 
-run_kernel() {
-    board=$top/sys/m68k/virt
+board=$top/sys/m68k/virt
+build_kernel() {
     if ! make -C "$board" -j"$(nproc)" CROSS="$CROSS" unix.elf >"$out/kernel-build.log" 2>&1; then
-        echo "FAIL kernel: build failed, see $out/kernel-build.log" >&2
+        echo "FAIL $1: kernel build failed, see $out/kernel-build.log" >&2
         tail -20 "$out/kernel-build.log" >&2
         return 1
     fi
+}
+
+run_kernel() {
+    build_kernel kernel || return 1
     check_result kernel "$(run_qemu "$board/unix.elf")" halts
+}
+
+# fsutil_clean name image: a clean --check prints the five phase headers
+# and the summary line only (its exit status is 0 even with errors).
+fsutil_clean() {
+    timeout 60 "$top/tools/fsutil/fsutil" --check --partition=1 "$2" >"$2.check" 2>&1 || true
+    if [ "$(grep -cv -e '^\*\* Phase [1-5] - ' \
+            -e '^[0-9]* files [0-9]* blocks [0-9]* free$' "$2.check")" != 0 ] ||
+       [ "$(wc -l <"$2.check")" != 6 ]; then
+        echo "FAIL $1: fsutil --check found errors:" >&2
+        head -20 "$2.check" >&2
+        return 1
+    fi
+}
+
+# rootfs: an image with an MBR, a 2 MB root and a 1 MB swap partition,
+# extended to its full 1 + 3072 KB (fsutil writes only up to the root).  The
+# root holds /dev/console, /sbin/init built from rootinit.S, and /etc/motd:
+# 100 filler lines and the expected line last, 6.5 KB, so the kernel reads
+# it through an indirect block.
+run_rootfs() {
+    d=$out/rootfs log=$out/rootfs-build.log
+    rm -rf "$d" && mkdir -p "$d/root/etc" "$d/root/sbin"
+    build_kernel rootfs || return 1
+    user=$(awk '$1 == "USER_DATA_START" { sub(";", "", $3); print $3 }' "$top/src/elf32-m68k.ld")
+    if ! { make -C "$top/tools/fsutil" &&
+           ${CROSS}gcc $CFLAGS -c "$here/rootinit.S" -o "$d/rootinit.o" &&
+           ${CROSS}ld -static -Ttext=$(printf 0x%x $((user - 32))) "$d/rootinit.o" -o "$d/rootinit.elf" &&
+           ${CROSS}objcopy -O binary "$d/rootinit.elf" "$d/root/sbin/init"; } >"$log" 2>&1; then
+        echo "FAIL rootfs: build failed, see $log" >&2
+        tail -20 "$log" >&2
+        return 1
+    fi
+    { awk 'BEGIN { for (i = 1; i <= 100; i++) printf "filler line %03d %48s\n", i, "" }'
+      expected rootfs; } >"$d/root/etc/motd"
+    printf '%s\n' default 'owner 0' 'group 0' 'dirmode 0775' 'filemode 0664' \
+        'dir /dev' 'dir /etc' 'dir /sbin' 'cdev /dev/console' 'major 0' 'minor 0' \
+        'file /etc/motd' 'file /sbin/init' 'mode 0700' >"$d/manifest"
+    fsutil="timeout 60 $top/tools/fsutil/fsutil"
+    { $fsutil --repartition=fs=2M:swap=1M "$d/disk.img" &&
+      $fsutil --new --partition=1 --manifest="$d/manifest" "$d/disk.img" "$d/root" &&
+      dd if=/dev/zero of="$d/disk.img" bs=1024 count=0 seek=3073 2>/dev/null; } >>"$log" 2>&1 ||
+        { echo "FAIL rootfs: creating the image failed, see $log" >&2; return 1; }
+    check_result rootfs "$(run_qemu "$board/unix.elf" \
+        -drive file="$d/disk.img",if=none,format=raw,id=a -device virtio-blk-device,drive=a)" \
+        halts || return 1
+    fsutil_clean rootfs "$d/disk.img"
 }
 
 # The vd test disks (vdstub.h): every sector holds 64 lines "%07d\n" of
@@ -216,15 +274,7 @@ run_fsutil() {
       $fsutil --new --partition=1 "$d/disk.img" "$d/src" &&
       (cd "$d" && $fsutil --add --partition=1 disk.img huge); } >>"$log" 2>&1 ||
         { echo "FAIL fsutil: creating the image failed, see $log" >&2; return 1; }
-    # A clean check prints the five phase headers and the summary only.
-    $fsutil --check --partition=1 "$d/disk.img" >"$d/check.out" 2>&1 || true
-    if [ "$(grep -cv -e '^\*\* Phase [1-5] - ' \
-            -e '^[0-9]* files [0-9]* blocks [0-9]* free$' "$d/check.out")" != 0 ] ||
-       [ "$(wc -l <"$d/check.out")" != 6 ]; then
-        echo "FAIL fsutil: --check found errors:" >&2
-        head -20 "$d/check.out" >&2
-        return 1
-    fi
+    fsutil_clean fsutil "$d/disk.img" || return 1
     r="timeout 60 $d/bsdread"
     $r "$d/disk.img" /huge >"$d/huge.out" 2>"$d/huge.err" &&
         cmp -s "$d/huge" "$d/huge.out" ||
@@ -251,6 +301,7 @@ run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
     [ "$name" = fsutil ] && { run_fsutil; return; }
+    [ "$name" = rootfs ] && { run_rootfs; return; }
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -258,7 +309,7 @@ run_test() {
     traps="ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart"
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes"
     class=plain
     case " startup cacr $machdep $traps " in *" $name "*) class=startup ;; esac
     case " $machdep " in *" $name "*) class=machdep ;; esac
@@ -344,7 +395,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         ktrap uill upriv utrace udivz buserr ufpe fpbiu tick callout todr \
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
-        consdev errmsg nlist vdprobe vdread vdwrite vdpart fsutil kernel}; do
+        consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes fsutil kernel rootfs}; do
     run_test "$t" || status=1
 done
 exit $status

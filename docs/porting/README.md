@@ -59,7 +59,7 @@ The machdep tests (`bootinfo` to `fpswtch`) also link the kernel's `sys/m68k/mac
 `ktest.c` standing in for the rest of the kernel, and are built with the `virt` board's
 `FPU_NO_FSAVE` (D28); they stop QEMU through `boot(RB_HALT)`, and
 `run.sh` checks that `halt` makes QEMU exit by itself with status 0.
-The trap tests (`ktrap` to `vdpart`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
+The trap tests (`ktrap` to `vdbytes`) add the kernel's `sys/m68k/trap.c`, `sys/m68k/clock.c`,
 `sys/kernel/kern_clock.c` and `ttest.c`, which stubs the scheduler and signal calls
 (`psignal()` calls the test's `got_signal()`), enters user mode with `rte`, and pushes
 hand-built exception frames for what QEMU does not raise (D25). The system call tests define
@@ -84,6 +84,8 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 `Makefile` (in place and incremental, like a developer build; the build log goes to
 `$OUT/kernel-build.log`) and boots it without a disk. Without a root filesystem (D20) the kernel panics, and
 `panic()` halts QEMU, so the test expects the panic message and exit status 0.
+The `rootfs` test boots the same kernel with a disk image that `tools/fsutil` builds (MBR, 2 MB
+root, 1 MB swap); its `/sbin/init` halts QEMU through `reboot(RB_HALT)`.
 
 | Test    | Checks                                            | Expected output |
 |---------|---------------------------------------------------|-----------------|
@@ -134,8 +136,10 @@ The `kernel` test is not a source file: it builds `sys/m68k/virt/unix.elf` with 
 | `vdread`  | reads finish by interrupt, multi-block, queued, a device error gives `EIO`, EOF at the end of the disk | `vdread ok` |
 | `vdwrite` | writes reach the disk through the raw disk and a partition; sector 0 and a read-only disk refuse them | `vdwrite ok` |
 | `vdpart`  | MBR partitions (`disklabel.c`): entries, offsets, EOF and truncation at the end, missing partitions, a disk without an MBR | `vdpart ok` |
+| `vdbytes` | transfers of part of a sector, as swap does: a partial last sector read without touching memory past the count, written zero padded (D38) | `vdbytes ok` |
 | `fsutil`   | host only, no QEMU: `tools/fsutil` writes a big-endian filesystem (D37) that `--check` passes cleanly and `bsdread.c`, an independent reader, reads back past block 65535 and through `..` | `PASS fsutil` |
-| `kernel`   | the whole kernel builds and boots to the M2 finish line | `panic: No root filesystem found!`, exit status 0 |
+| `kernel`   | the whole kernel builds and boots to the M2 finish line, without a disk | `panic: No root filesystem found!`, exit status 0 |
+| `rootfs`   | the kernel mounts an `fsutil` image as root on `vd0a`, swaps process 1 out and in on `vd0b`, and runs its `/sbin/init` (`rootinit.S`, a hand-built a.out), which copies `/etc/motd` (past the direct blocks) to the console and halts; the image then passes `fsutil --check` | `rootfs ok: end of /etc/motd`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a
 different toolchain prefix. `run.sh -v [test]` (or `make check V=1`) also prints each test's
@@ -157,7 +161,9 @@ first MBR partition of `vd0` (`vd0a`) and swap the second (`vd0b`).
 QEMU loads the ELF and passes its bootinfo records (memory size, CPU) after `_end`. The
 console is the Goldfish TTY on stdio. Without a disk holding a big-endian filesystem written by
 the m68k `fsutil` (M4, D37), the kernel ends with `panic: No root filesystem found!` and `panic()` halts QEMU through `virt-ctrl`
-(exit status 0). Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
+(exit status 0). With one, it runs `/sbin/init` from it; the image of the `rootfs` test,
+`$OUT/rootfs/disk.img`, boots to its test `init`. `fsutil --repartition` writes an image only up to
+the end of the root, so extend it to cover the swap partition before booting. Otherwise exit QEMU with `Ctrl-A X`. The same command works for the smoke test
 images in `$OUT` (default `/tmp/retrobsd-m68k-smoke`).
 
 ### QEMU limitations

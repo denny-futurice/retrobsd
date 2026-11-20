@@ -378,11 +378,19 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       pass 65535 and follows `..` of `/` and `lost+found`. Mutation-checked:
       each helper reversed, raw block and header I/O, the 16-bit indirect
       scan and the single-byte `..` inode all fail it
-- [ ] Kernel mounts an `fsutil` image (smoke test): a small image with an
+- [x] Kernel mounts an `fsutil` image (smoke test): a small image with an
       MBR, a root partition and a file; the kernel mounts `vd0a` as root
       and reads the file back. This test is the one that proves the
       `fsutil` and kernel formats match. Depends on the `fsutil` task;
-      replaces the D20 root panic
+      replaces the D20 root panic.
+      Done: smoke test `rootfs`. The image holds `/dev/console`, a 6.5 KB
+      `/etc/motd` (read through an indirect block) and `/sbin/init` from
+      `smoke/rootinit.S`, which copies the file to the console and halts;
+      the image passes `fsutil --check` afterwards. The `kernel` test still
+      boots without a disk and expects the root panic. Fixed on the way
+      (D38): `vd` takes byte counts that are not whole sectors (test
+      `vdbytes`), and `swtch()` no longer mistakes process 0 for a user
+      process while the boot-time `newproc()` swap-out sleeps
 - [ ] `elf2aout` for m68k (D37): read big-endian ELF32 with `EM_68K`;
       write the a.out header and symbol table big-endian; set the m68k
       a.out magic. In the kernel, `exec_elf.c` checks `ELFDATA2LSB` and
@@ -390,14 +398,20 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       path (decide in the task). The `-s` symbol-file mode is not used by
       the build and its format does not match libc `nlist()`: leave it
       unconverted or remove it. Host test: convert a smoke-test ELF and
-      check the header fields
-- [ ] Run a static `init` as a user process (fixed user region, no MMU),
+      check the header fields. Then build `smoke/rootinit.S` through
+      `elf2aout` instead of its hand-written a.out header
+- [x] Run a static `init` as a user process (fixed user region, no MMU),
       moved from M3 (D21): a freestanding test `/sbin/init` (smoke-test
       style, raw `trap #0` syscalls) on the root image, which opens the
       console and writes to it. The real `/sbin/init` follows with the M5
-      libc. Depends on the mount task and `elf2aout`
+      libc. Depends on the mount task and `elf2aout`.
+      Done with the mount task: `smoke/rootinit.S` carries its own OMAGIC
+      header, so it did not wait for `elf2aout`
 - [ ] Configure swap on `vd0b`; test that a process is swapped out and
-      back in. Depends on `init`
+      back in. Depends on `init`. Swap on `vd0b` is configured and the
+      boot-time swap-out and swap-in of process 1's u area work (`rootfs`);
+      still to test: a user process with data and stack segments swapped
+      out and back in, including while it sleeps (D38)
 
 ## M5: Libc and userland
 - [ ] m68k `crt0`, syscall stubs, `setjmp`/`longjmp`, `alloca`, signal trampoline
@@ -473,3 +487,13 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
         calls into `sigsetops.c` instead of header macros (D19). Measure
         whether the call overhead matters and, if so, inline them without
         reintroducing GCC-specific constructs
+- [ ] Run ELF executables directly (lowest priority; userland stays
+      a.out through `elf2aout`). `sys/kernel/exec_elf.c` loads only a
+      single read-write-execute `PT_LOAD` segment, so the two segments
+      from `src/elf32-m68k.ld` (RX and RW) give ENOEXEC; it rejects a
+      segment whose file size is not below its memory size (a program
+      without bss); and it checks `ELFDATA2LSB`/`EM_MIPS`. Fix: accept
+      `ELFDATA2MSB`/`EM_68K`, load each `PT_LOAD` (text and data/bss
+      inside the fixed user region), and allow `p_filesz == p_memsz`.
+      Cost: ELF headers and section tables make files on the root image
+      larger

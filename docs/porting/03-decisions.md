@@ -742,3 +742,28 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `fsutil` magic numbers stay numeric (`FSMAGIC1/2`); the bytes on disk
   read `<<SF` instead of `FS<<`. The host-side `fsutil` keeps assuming a
   32-bit `time_t` (`gcc -m32`), which is unrelated to byte order.
+
+## D38: Swap I/O sleeps: `vd` takes any byte count, `swtch` tests the u area
+- **Context:** the first boot with an `fsutil` root (M4) reached the
+  boot-time `newproc()`, which swaps out a copy of process 0 as process 1,
+  and failed twice. PIC32's `sd` was polled and accepted any byte count;
+  `vd` (D36) is interrupt driven and refused counts that were not whole
+  sectors. Swap moves the u area and the data and stack segments with
+  their byte sizes (`icode` is a few dozen bytes), and `swap()` now sleeps
+  until the interrupt. During that swap-out `newproc()` points
+  `u.u_procp` at the child, so `swtch()` took process 0 for a user
+  process and `longjmp`ed to its `u_qsave`, which had never been set: the
+  kernel ran from address 0 through the zeroed vector table into `_start`
+  and booted again.
+- **Decision:**
+  - `vd` accepts any byte count, as `sd` did. The whole sectors go to
+    the caller's buffer; a partial last sector goes through a 512-byte
+    bounce buffer per disk, zero padded on write, and only the requested
+    bytes are copied out on read. A zero count finishes at once.
+  - `swtch()` decides whether it runs in process 0 by whose u area is in
+    `u` (`proc[0].p_addr == &u`), not by `u.u_procp`. In every other case
+    the two tests agree.
+- **Consequences:** swap I/O may sleep anywhere it is done, which PIC32
+  never exercised; later swap tests (M4) must cover a user process being
+  swapped while it waits. The `rootfs` smoke test checks the boot-time
+  swap; `vdbytes` checks partial sectors.
