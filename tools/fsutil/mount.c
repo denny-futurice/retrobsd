@@ -780,11 +780,7 @@ int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
     fs_t *fs = fuse_get_context()->private_data;
     fs_inode_t dir;
     char name [BSDFS_BSIZE - 12];
-    struct {
-        unsigned int inum;
-        unsigned short reclen;
-        unsigned short namlen;
-    } dirent;
+    fs_dirhdr_t dirent;
 
     printlog("--- op_readdir(path=\"%s\", buf=%p, filler=%p, offset=%lld, fi=%p)\n",
         path, buf, filler, offset, fi);
@@ -796,13 +792,13 @@ int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset
 
     /* Copy the entire directory into the buffer. */
     for (offset = 0; offset < dir.size; offset += dirent.reclen) {
-        if (! fs_inode_read (&dir, offset, (unsigned char*) &dirent, sizeof(dirent))) {
+        if (! fs_dirhdr_read (&dir, offset, &dirent)) {
             printlog("--- read error at offset %ld\n", offset);
             return -EIO;
         }
         //printlog("--- readdir offset %lu: inum=%u, reclen=%u, namlen=%u\n", offset, dirent.inum, dirent.reclen, dirent.namlen);
 
-        if (! fs_inode_read (&dir, offset+sizeof(dirent),
+        if (! fs_inode_read (&dir, offset+FS_DIRHDR_SIZE,
             (unsigned char*)name, (dirent.namlen + 4) / 4 * 4))
         {
             printlog("--- name read error at offset %ld\n", offset);

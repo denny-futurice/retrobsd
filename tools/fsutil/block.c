@@ -22,6 +22,7 @@
  * this software.
  */
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include "bsdfs.h"
 
@@ -55,6 +56,32 @@ int fs_write_block (fs_t *fs, unsigned bnum, unsigned char *data)
 }
 
 /*
+ * Read or write a block of 32-bit words (indirect or free-list block),
+ * converting between disk and host byte order.
+ */
+int fs_read_block32 (fs_t *fs, unsigned bnum, unsigned *words)
+{
+    unsigned char data [BSDFS_BSIZE];
+    int i;
+
+    if (! fs_read_block (fs, bnum, data))
+        return 0;
+    for (i=0; i<BSDFS_BSIZE/4; i++)
+        words[i] = fs_get32 (data + i*4);
+    return 1;
+}
+
+int fs_write_block32 (fs_t *fs, unsigned bnum, const unsigned *words)
+{
+    unsigned char data [BSDFS_BSIZE];
+    int i;
+
+    for (i=0; i<BSDFS_BSIZE/4; i++)
+        fs_put32 (data + i*4, words[i]);
+    return fs_write_block (fs, bnum, data);
+}
+
+/*
  * Add a block to free list.
  */
 int fs_block_free (fs_t *fs, unsigned int bno)
@@ -62,13 +89,14 @@ int fs_block_free (fs_t *fs, unsigned int bno)
     int i;
     unsigned buf [BSDFS_BSIZE / 4];
 
+    memset (buf, 0, sizeof (buf));
     if (verbose > 1)
         printf ("free block %d, total %d\n", bno, fs->nfree);
     if (fs->nfree >= NICFREE) {
         buf[0] = fs->nfree;
         for (i=0; i<NICFREE; i++)
             buf[i+1] = fs->free[i];
-        if (! fs_write_block (fs, bno, (unsigned char*) buf)) {
+        if (! fs_write_block32 (fs, bno, buf)) {
             fprintf (stderr, "block_free: write error at block %d\n", bno);
             return 0;
         }
@@ -100,8 +128,7 @@ int fs_indirect_block_free (fs_t *fs, unsigned int bno, int nblk)
             /* Truncate up to required size. */
             return 0;
         }
-        nb = data [i+3] << 24 | data [i+2] << 16 |
-             data [i+1] << 8  | data [i];
+        nb = fs_get32 (data + i);
         if (nb)
             fs_block_free (fs, nb);
     }
@@ -127,8 +154,7 @@ int fs_double_indirect_block_free (fs_t *fs, unsigned int bno, int nblk)
             /* Truncate up to required size. */
             return 0;
         }
-        nb = data [i+3] << 24 | data [i+2] << 16 |
-             data [i+1] << 8  | data [i];
+        nb = fs_get32 (data + i);
         if (nb)
             fs_indirect_block_free (fs, nb,
                 nblk - i/4 * BSDFS_BSIZE/4);
@@ -155,8 +181,7 @@ int fs_triple_indirect_block_free (fs_t *fs, unsigned int bno, int nblk)
             /* Truncate up to required size. */
             return 0;
         }
-        nb = data [i+3] << 24 | data [i+2] << 16 |
-             data [i+1] << 8  | data [i];
+        nb = fs_get32 (data + i);
         if (nb)
             fs_double_indirect_block_free (fs, nb,
                 nblk - i/4 * BSDFS_BSIZE/4 * BSDFS_BSIZE/4);
@@ -183,7 +208,7 @@ again:
     fs->free [fs->nfree] = 0;
     fs->dirty = 1;
     if (fs->nfree <= 0) {
-        if (! fs_read_block (fs, *bno, (unsigned char*) buf))
+        if (! fs_read_block32 (fs, *bno, buf))
             return 0;
         fs->nfree = buf[0];
         for (i=0; i<NICFREE; i++)

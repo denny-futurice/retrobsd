@@ -82,53 +82,32 @@ static int create_root_directory (fs_t *fs)
 
     /* directory - put in extra links */
     memset (buf, 0, sizeof(buf));
-    buf[0] = inode.number;
-    buf[1] = inode.number >> 8;
-    buf[2] = inode.number >> 16;
-    buf[3] = inode.number >> 24;
-    buf[4] = 12;
-    buf[5] = 12 >> 8;
-    buf[6] = 1;
-    buf[7] = 1 >> 8;
+    fs_put32 (&buf[0], inode.number);
+    fs_put16 (&buf[4], 12);
+    fs_put16 (&buf[6], 1);
     buf[8] = '.';
     buf[9] = 0;
     buf[10] = 0;
     buf[11] = 0;
 
-    buf[12+0] = BSDFS_ROOT_INODE;
-    buf[12+1] = BSDFS_ROOT_INODE >> 8;
-    buf[12+2] = BSDFS_ROOT_INODE >> 16;
-    buf[12+3] = BSDFS_ROOT_INODE >> 24;
-    buf[12+4] = 12;
-    buf[12+5] = 12 >> 8;
-    buf[12+6] = 2;
-    buf[12+7] = 2 >> 8;
+    fs_put32 (&buf[12+0], BSDFS_ROOT_INODE);
+    fs_put16 (&buf[12+4], 12);
+    fs_put16 (&buf[12+6], 2);
     buf[12+8] = '.';
     buf[12+9] = '.';
     buf[12+10] = 0;
     buf[12+11] = 0;
 
-    buf[24+0] = BSDFS_LOSTFOUND_INODE;
-    buf[24+1] = BSDFS_LOSTFOUND_INODE >> 8;
-    buf[24+2] = BSDFS_LOSTFOUND_INODE >> 16;
-    buf[24+3] = BSDFS_LOSTFOUND_INODE >> 24;
-    buf[24+4] = (unsigned char) (BSDFS_BSIZE - 12 - 12);
-    buf[24+5] = (BSDFS_BSIZE - 12 - 12) >> 8;
-    buf[24+6] = 10;
-    buf[24+7] = 10 >> 8;
+    fs_put32 (&buf[24+0], BSDFS_LOSTFOUND_INODE);
+    fs_put16 (&buf[24+4], (BSDFS_BSIZE - 12 - 12));
+    fs_put16 (&buf[24+6], 10);
     memcpy (&buf[24+8], "lost+found\0\0", 12);
 
     if (fs->swapsz != 0) {
-        buf[24+4] = 20;
-        buf[24+5] = 20 >> 8;
-        buf[44+0] = BSDFS_SWAP_INODE;
-        buf[44+1] = BSDFS_SWAP_INODE >> 8;
-        buf[44+2] = BSDFS_SWAP_INODE >> 16;
-        buf[44+3] = BSDFS_SWAP_INODE >> 24;
-        buf[44+4] = (unsigned char) (BSDFS_BSIZE - 12 - 12 - 20);
-        buf[44+5] = (BSDFS_BSIZE - 12 - 12 - 20) >> 8;
-        buf[44+6] = 4;
-        buf[44+7] = 4 >> 8;
+        fs_put16 (&buf[24+4], 20);
+        fs_put32 (&buf[44+0], BSDFS_SWAP_INODE);
+        fs_put16 (&buf[44+4], (BSDFS_BSIZE - 12 - 12 - 20));
+        fs_put16 (&buf[44+6], 4);
         memcpy (&buf[44+8], "swap\0\0\0\0", 8);
     }
     inode.nlink = 3;
@@ -164,27 +143,17 @@ static int create_lost_found_directory (fs_t *fs)
 
     /* directory - put in extra links */
     memset (buf, 0, sizeof(buf));
-    buf[0] = inode.number;
-    buf[1] = inode.number >> 8;
-    buf[2] = inode.number >> 16;
-    buf[3] = inode.number >> 24;
-    buf[4] = 12;
-    buf[5] = 12 >> 8;
-    buf[6] = 1;
-    buf[7] = 1 >> 8;
+    fs_put32 (&buf[0], inode.number);
+    fs_put16 (&buf[4], 12);
+    fs_put16 (&buf[6], 1);
     buf[8] = '.';
     buf[9] = 0;
     buf[10] = 0;
     buf[11] = 0;
 
-    buf[12+0] = BSDFS_ROOT_INODE;
-    buf[12+1] = BSDFS_ROOT_INODE >> 8;
-    buf[12+2] = BSDFS_ROOT_INODE >> 16;
-    buf[12+3] = BSDFS_ROOT_INODE >> 24;
-    buf[12+4] = (unsigned char) (BSDFS_BSIZE - 12);
-    buf[12+5] = (BSDFS_BSIZE - 12) >> 8;
-    buf[12+6] = 2;
-    buf[12+7] = 2 >> 8;
+    fs_put32 (&buf[12+0], BSDFS_ROOT_INODE);
+    fs_put16 (&buf[12+4], (BSDFS_BSIZE - 12));
+    fs_put16 (&buf[12+6], 2);
     buf[12+8] = '.';
     buf[12+9] = '.';
     buf[12+10] = 0;
@@ -252,7 +221,7 @@ alloc_error:
         if (verbose)
             printf ("swap: allocate indirect block %d (j=%d)\n", indir, j);
         memset (block, 0, BSDFS_BSIZE);
-        if (! fs_write_block (inode->fs, indir, (unsigned char*) block)) {
+        if (! fs_write_block32 (inode->fs, indir, block)) {
 write_error:
             fprintf (stderr, "swap: cannot write indirect block %d\n", indir);
             exit (-1);
@@ -264,7 +233,7 @@ write_error:
      * Fetch through the indirect blocks
      */
     for (; ; j++) {
-        if (! fs_read_block (inode->fs, indir, (unsigned char*) block)) {
+        if (! fs_read_block32 (inode->fs, indir, block)) {
             fprintf (stderr, "swap: cannot read indirect block %d\n", indir);
             exit (-1);
         }
@@ -272,7 +241,7 @@ write_error:
         i = (bn >> shift) & NMASK;
         if (j == 3) {
             block[i] = inode->fs->isize + lbn;
-            if (! fs_write_block (inode->fs, indir, (unsigned char*) block))
+            if (! fs_write_block32 (inode->fs, indir, block))
                 goto write_error;
             return;
         }
@@ -286,10 +255,10 @@ write_error:
         if (verbose)
             printf ("swap: allocate new block %d (j=%d)\n", newb, j);
         block[i] = newb;
-        if (! fs_write_block (inode->fs, indir, (unsigned char*) block))
+        if (! fs_write_block32 (inode->fs, indir, block))
             goto write_error;
         memset (block, 0, BSDFS_BSIZE);
-        if (! fs_write_block (inode->fs, newb, (unsigned char*) block)) {
+        if (! fs_write_block32 (inode->fs, newb, block)) {
             fprintf (stderr, "swap: cannot write block %d\n", newb);
             exit (-1);
         }

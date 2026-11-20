@@ -22,6 +22,47 @@
  * this software.
  */
 #define BSDFS_BSIZE             1024    /* block size */
+
+/*
+ * The filesystem is big-endian, as the m68k kernel reads it natively (D37).
+ * The MBR partition table is little-endian by definition.
+ */
+static inline unsigned fs_get32 (const unsigned char *p)
+{
+    return (unsigned) p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+
+static inline unsigned fs_get16 (const unsigned char *p)
+{
+    return p[0] << 8 | p[1];
+}
+
+static inline void fs_put32 (unsigned char *p, unsigned val)
+{
+    p[0] = val >> 24;
+    p[1] = val >> 16;
+    p[2] = val >> 8;
+    p[3] = val;
+}
+
+static inline void fs_put16 (unsigned char *p, unsigned val)
+{
+    p[0] = val >> 8;
+    p[1] = val;
+}
+
+static inline unsigned mbr_get32 (const unsigned char *p)
+{
+    return (unsigned) p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0];
+}
+
+static inline void mbr_put32 (unsigned char *p, unsigned val)
+{
+    p[0] = val;
+    p[1] = val >> 8;
+    p[2] = val >> 16;
+    p[3] = val >> 24;
+}
 #define BSDFS_ROOT_INODE        2       /* root directory in inode 2 */
 #define BSDFS_LOSTFOUND_INODE   3       /* lost+found directory in inode 3 */
 #define BSDFS_SWAP_INODE        4       /* swap file in inode 4 */
@@ -139,6 +180,15 @@ typedef struct {
     char            name [63+1];
 } fs_dirent_t;
 
+/* Fixed part of a directory entry, followed by the name. */
+#define FS_DIRHDR_SIZE  8
+
+typedef struct {
+    unsigned        inum;
+    unsigned short  reclen;
+    unsigned short  namlen;
+} fs_dirhdr_t;
+
 typedef void (*fs_directory_scanner_t) (fs_inode_t *dir,
     fs_inode_t *file, char *dirname, char *filename, void *arg);
 
@@ -197,6 +247,8 @@ int inode_build_list (fs_t *fs);
 
 int fs_write_block (fs_t *fs, unsigned bnum, unsigned char *data);
 int fs_read_block (fs_t *fs, unsigned bnum, unsigned char *data);
+int fs_write_block32 (fs_t *fs, unsigned bnum, const unsigned *words);
+int fs_read_block32 (fs_t *fs, unsigned bnum, unsigned *words);
 int fs_block_free (fs_t *fs, unsigned int bno);
 int fs_block_alloc (fs_t *fs, unsigned int *bno);
 int fs_indirect_block_free (fs_t *fs, unsigned int bno, int nblk);
@@ -206,6 +258,9 @@ int fs_triple_indirect_block_free (fs_t *fs, unsigned int bno, int nblk);
 void fs_directory_scan (fs_inode_t *inode, char *dirname,
     fs_directory_scanner_t scanner, void *arg);
 void fs_dirent_pack (unsigned char *data, fs_dirent_t *dirent);
+int fs_dirhdr_read (fs_inode_t *dir, unsigned long offset, fs_dirhdr_t *hdr);
+int fs_dirhdr_write (fs_inode_t *dir, unsigned long offset,
+    const fs_dirhdr_t *hdr);
 void fs_dirent_unpack (fs_dirent_t *dirent, unsigned char *data);
 
 int fs_file_create (fs_t *fs, fs_file_t *file, const char *name, int mode);

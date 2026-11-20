@@ -189,8 +189,8 @@ static int scan_indirect_block (fs_inode_t *inode, unsigned blk,
         print_io_error ("READ", blk);
         return SKIP;
     }
-    for (i = 0; i < BSDFS_BSIZE; i+=2) {
-        nb = data [i+1] << 8 | data [i];
+    for (i = 0; i < BSDFS_BSIZE; i+=4) {
+        nb = fs_get32 (data + i);
         if (nb) {
             if (double_indirect)
                 ret = scan_indirect_block (inode, nb,
@@ -730,7 +730,7 @@ static unsigned check_free_list (fs_t *fs)
         }
         if (*ap == 0 || pass5 (fs, *ap, &free_blocks) != KEEPON)
             break;
-        if (! fs_read_block (fs, *ap, (unsigned char*) data)) {
+        if (! fs_read_block32 (fs, *ap, data)) {
             print_io_error ("READ", *ap);
             break;
         }

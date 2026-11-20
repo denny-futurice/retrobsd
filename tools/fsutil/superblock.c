@@ -62,7 +62,7 @@ int fs_read16 (fs_t *fs, unsigned short *val)
             printf ("error read16, seek %ld block %ld\n", fs->seek, fs->seek / BSDFS_BSIZE);
         return 0;
     }
-    *val = data[1] << 8 | data[0];
+    *val = fs_get16 (data);
     return 1;
 }
 
@@ -75,8 +75,7 @@ int fs_read32 (fs_t *fs, unsigned *val)
             printf ("error read32, seek %ld block %ld\n", fs->seek, fs->seek / BSDFS_BSIZE);
         return 0;
     }
-    *val = (unsigned long) data[0] | (unsigned long) data[1] << 8 |
-        data[2] << 16 | data[3] << 24;
+    *val = fs_get32 (data);
     return 1;
 }
 
@@ -91,8 +90,7 @@ int fs_write16 (fs_t *fs, unsigned short val)
 {
     unsigned char data [2];
 
-    data[0] = val;
-    data[1] = val >> 8;
+    fs_put16 (data, val);
     if (write (fs->fd, data, 2) != 2)
         return 0;
     return 1;
@@ -102,10 +100,7 @@ int fs_write32 (fs_t *fs, unsigned val)
 {
     unsigned char data [4];
 
-    data[0] = val;
-    data[1] = val >> 8;
-    data[2] = val >> 16;
-    data[3] = val >> 24;
+    fs_put32 (data, val);
     if (write (fs->fd, data, 4) != 4)
         return 0;
     return 1;
@@ -165,8 +160,8 @@ int fs_set_partition (fs_t *fs, unsigned pindex)
     /* Read partition entry. */
     entry = &buf [446 + (pindex-1)*16];
     fs->part_type = entry [4];
-    fs->part_offset = *(unsigned*) &entry [8];
-    fs->part_nsectors = *(unsigned*) &entry [12];
+    fs->part_offset = mbr_get32 (&entry [8]);
+    fs->part_nsectors = mbr_get32 (&entry [12]);
     if (fs->part_type == 0) {
         fprintf (stderr, "%s: Partition %u not allocated.\n",
             fs->filename, pindex);

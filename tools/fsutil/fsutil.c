@@ -144,7 +144,7 @@ void print_inode (fs_inode_t *inode,
 
 void print_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
 {
-    unsigned short nb;
+    unsigned nb;
     unsigned char data [BSDFS_BSIZE];
     int i;
 
@@ -153,8 +153,8 @@ void print_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
         fprintf (stderr, "read error at block %d\n", bno);
         return;
     }
-    for (i=0; i<BSDFS_BSIZE-2; i+=2) {
-        nb = data [i+1] << 8 | data [i];
+    for (i=0; i<BSDFS_BSIZE; i+=4) {
+        nb = fs_get32 (data + i);
         if (nb)
             fprintf (out, " %d", nb);
     }
@@ -162,7 +162,7 @@ void print_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
 
 void print_double_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
 {
-    unsigned short nb;
+    unsigned nb;
     unsigned char data [BSDFS_BSIZE];
     int i;
 
@@ -171,8 +171,8 @@ void print_double_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
         fprintf (stderr, "read error at block %d\n", bno);
         return;
     }
-    for (i=0; i<BSDFS_BSIZE-2; i+=2) {
-        nb = data [i+1] << 8 | data [i];
+    for (i=0; i<BSDFS_BSIZE; i+=4) {
+        nb = fs_get32 (data + i);
         if (nb)
             print_indirect_block (fs, nb, out);
     }
@@ -180,7 +180,7 @@ void print_double_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
 
 void print_triple_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
 {
-    unsigned short nb;
+    unsigned nb;
     unsigned char data [BSDFS_BSIZE];
     int i;
 
@@ -189,10 +189,10 @@ void print_triple_indirect_block (fs_t *fs, unsigned int bno, FILE *out)
         fprintf (stderr, "read error at block %d\n", bno);
         return;
     }
-    for (i=0; i<BSDFS_BSIZE-2; i+=2) {
-        nb = data [i+1] << 8 | data [i];
+    for (i=0; i<BSDFS_BSIZE; i+=4) {
+        nb = fs_get32 (data + i);
         if (nb)
-            print_indirect_block (fs, nb, out);
+            print_double_indirect_block (fs, nb, out);
     }
 }
 
@@ -676,8 +676,8 @@ void create_partition_table (const char *filename, char *format)
         /* Fill partition entry. */
         entry = &buf [446 + (pindex-1)*16];
         entry [4] = type;
-        *(unsigned*) &entry [8] = offset;
-        *(unsigned*) &entry [12] = len;
+        mbr_put32 (&entry [8], offset);
+        mbr_put32 (&entry [12], len);
 
         /* Make first FS active. */
         if (type == 0xb7 && ! activated) {
