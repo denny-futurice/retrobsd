@@ -1,5 +1,18 @@
 #ifndef _SETJMP_H
 #define _SETJMP_H
+#ifdef __mc68000__
+/*
+ * m68k (D42), in longs; see src/libc/m68k/gen/_setjmp.S:
+ *	0-5   - d2-d7
+ *	6-10  - a2-a6
+ *	11    - sp at the call
+ *	12    - return address
+ *	13    - signal mask saved
+ *	14    - signal mask
+ *	15-32 - fp2-fp7, 12 bytes each
+ */
+typedef int jmp_buf [33];
+#else
 /*
  * Total 12 registers for MIPS architecture:
  *	0  - $s0
@@ -18,6 +31,7 @@
  *      13 - signal mask
  */
 typedef int jmp_buf [14];
+#endif
 typedef jmp_buf sigjmp_buf;
 
 /*
