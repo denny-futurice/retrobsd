@@ -5,6 +5,11 @@ Target: RetroBSD on 68030 (no MMU), QEMU `virt`. See
 
 Status legend: `[ ]` open, `[x]` done.
 
+Milestones from M6 on were reorganised (D49-D51, D53, D54): the PIC32
+cleanup (M6), bring-up platform (M7), memory model (M8) and networking
+(M16) milestones were inserted, and the old M6, "Optional / future", was
+split into M9-M17. "M6" in decisions D1-D48 means that old milestone.
+
 ## M0: Project setup
 - [x] Create `retrobsd-68k` branch
 - [x] Add `docs/porting/` (assessment, backlog, decision record)
@@ -40,7 +45,8 @@ are converted for m68k, not duplicated, and the PIC32 build stops working.
       with GCC and no Clang/ihex/pic32prog references)
 - [ ] Delete `clang-config.mk` once nothing includes it (only the PIC32
       `sys/pic32/attic/*/Makefile` still do)
-      Handover: blocked on D11 (PIC32 reference stays); leave open.
+      Handover: blocked on D11 (PIC32 reference stays); now part of
+      M6 (D54).
 - [x] Set `MACHINE = m68k`, retarget the `include/machine` symlink to
       `../sys/m68k` and remove `include/pic32` (D13) (`target.mk`, `cross.mk`; `src/` now descends into
       `startup-m68k` and `libc/m68k`, which have no Makefiles yet)
@@ -310,7 +316,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `init` runs (M4)
 - [x] 10. 68030 caches off (D34): `_start` clears and disables both
       caches through `CACR`, whatever the bootloader left; enabling them
-      is an M6 task. Smoke test `cacr`: with every cache bit set before
+      is an M11 task. Smoke test `cacr`: with every cache bit set before
       `_start` runs, the enable bits read 0 after boot and the clear bits
       were written
 - [x] 11. Remaining stubs: `sys/m68k/stubs.c` is empty and removed (D20);
@@ -505,7 +511,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `fortune`, `monop` (`src/games/Makefile` `SUBDIR`) and `retroforth`
       (`src/cmd/Makefile` `SUBDIR`) with their manifest entries, data
       files and man pages: their data files are little-endian (D37) and
-      come back in M6
+      come back in M14
       Done (D45): `make` builds everything and the image passes
       `fsutil --check`; smoke test `userland`
 - [x] Fix `-Werror` failures in `src/cmd` and `src/games` as they are built.
@@ -543,36 +549,253 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       and `/dev/tty`, whose manifest mode `666` was read as decimal.
       Smoke test `basic`
 
-## M6: Optional / future
-- [ ] Amiga: let `basic` `INP`/`OUT` (PEEK/POKE) reach the custom chip
-      registers (graphics, sound) and the CIAs. `mmrw` in `sys/m68k/mem.c`
-      only allows kernel RAM and the user window (D48); add the Amiga
-      register ranges for `/dev/mem` and check on WinUAE that a BASIC
-      program can, for example, change a colour register or play a
-      sample
+## M6: PIC32 cleanup
+
+PIC32 is abandoned (D11) and the m68k port no longer needs its code as a
+working reference: git history keeps it. Remove as much of the stale
+PIC32 and MIPS content as possible before the next milestones, so that
+searches, `clangd` and the docs only show the m68k system (D54).
+
+- [ ] Inventory the PIC32 and MIPS content, with paths: `sys/pic32/`
+      (boards, drivers, `attic/`), `src/libc/mips/`, `src/startup-mips/`,
+      `src/elf32-mips.ld`, `clang-config.mk`, the PIC32-only libraries and
+      programs (D18: `libgpanel`, `libwiznet`, the hardware programs) with
+      their `rootfs.manifest` entries and man pages, `tools/` and
+      Makefile references, `#ifdef` branches for PIC32 or MIPS in
+      `sys/kernel/`, `sys/include/`, `include/` and `src/`, and the
+      PIC32 parts of `README.md`, `CLAUDE.md` and `docs/`. Classify each
+      as remove, convert, or keep (with the reason, for example a driver
+      or an idea still to be ported)
+- [ ] Remove the PIC32 kernel side (`sys/pic32/` and its kconfig
+      remnants); `make` and `make check` pass
+- [ ] Remove the MIPS userland side (`src/libc/mips/`,
+      `src/startup-mips/`, `src/elf32-mips.ld`) and `clang-config.mk`
+      (closes the M1 task); `make` and `make check` pass
+- [ ] Remove the PIC32-only libraries and programs, with their build,
+      manifest and man page entries; the root image passes `fsutil
+      --check` and `make check` passes
+- [ ] Remove dead PIC32 and MIPS conditionals in shared code, one area per
+      commit; `make check` passes
+- [ ] Rewrite the docs for the m68k system: `README.md`, the PIC32
+      reference section of `CLAUDE.md` (build, kconfig, layout and the
+      three build configurations, as they now are on m68k), and the
+      working rules that protect PIC32 code (D11, D13)
+- [ ] Tag the cleaned tree `m68k-qemu-virt-baseline` (a local annotated
+      tag; the owner pushes it) once `make check` passes, as the QEMU
+      `virt` baseline before the board work
+
+## M7: Bring-up platform
+
+Choose the emulator for the first board before any board work. It must
+validate what QEMU's 68030 cannot (D25): bus and address error frames,
+FPU exceptions, `fsave`/`frestore`, `rte` format errors and the PMMU.
+WinUAE was assumed (D7, D25), but it may be heavy to drive from the agent
+workflow (D49). The choice also picks the first board: the Amiga for the
+UAE family, the Atari TT/Falcon for Hatari and ARAnyM.
+
+Candidates:
+- Hatari, with TT emulation and the PMMU enabled (68030)
+- WinUAE, stock
+- WinUAE forks
+- FS-UAE
+- ARAnyM
+
+Requirements:
+- Runs on Linux, and can be scripted for `make check` (headless boot,
+  console capture, exit on halt)
+- A competent remote debugger usable from the agent workflow, CLI or MCP
+  (for example a GDB stub or a debugger console): breakpoints, registers,
+  memory, stepping
+- MMU emulation accuracy: the 68030 PMMU and the exception behaviour in
+  D25, checked with a probe rather than taken from documentation
+
+- [ ] Add the CPU documentation under `docs/hardware/`: the Motorola
+      68030, 68881/68882 and PMMU references (user's manuals), which the
+      evaluation probes below and the M9-M12 code are written against.
+      Check each document's licence: commit those that may be
+      redistributed, and link to the others with a short summary of what
+      is used from them. Index it in `docs/hardware/README.md` and link
+      that from `CLAUDE.md`
+- [ ] Evaluate each candidate against the requirements: version, how it
+      is installed or built on Debian, its debugger interface, and which
+      D25 behaviours it emulates (probe where feasible). Record the
+      results in a comparison table under `docs/porting/`
+- [ ] Decide the bring-up platform and first board; record it as a
+      decision, superseding the WinUAE parts of D7 and D25 if the choice
+      differs, and update `CLAUDE.md` and `docs/porting/README.md`
+- [ ] Add the chosen board's documentation to `docs/hardware/` on the
+      same licence terms (for example the Amiga Hardware Reference
+      Manual, or the Atari TT/Falcon hardware documentation)
+- [ ] Evaluate the existing agent skills for m68k Atari and Amiga
+      development (what each covers, accuracy against the manuals,
+      maintenance, licence) and decide which to add, matching the
+      platform chosen above; record the decision. Add them to the
+      repository where both Claude Code and Copilot CLI load them, flagged
+      to the user as transferred content with source and licence (D52),
+      and mention them in `CLAUDE.md`
+- [ ] Retarget M9-M17 to the choice: name the board and emulator in their
+      tasks, and drop or retarget the Amiga-specific ones (RDB, custom
+      chips) if the board is not the Amiga
+
+## M8: Memory models
+
+Today there is one memory model: one user process in core, in the fixed
+window `USER_DATA_START`-`USER_DATA_END`, with whole-process swapping and
+no MMU (D5, D41, D46). The 68030's goal is full virtual memory with the
+PMMU: an address space per process, protection, and later demand paging.
+Assess what it takes to build kernels for both models from one codebase,
+selected at configuration time, and if feasible prepare the tree for it
+before M9. Implementing virtual memory (M12) itself is not part of this
+milestone. The assessment can start before M7; anything that runs PMMU
+code needs the platform chosen there (QEMU's 68030 has no PMMU, D25).
+
+- [ ] Add the upstream 2.11BSD tree, at its last official patch level,
+      as a reference submodule under `docs/` (like `docs/qemu`, D29).
+      2.11BSD is distributed as the original tape plus patches (TUHS), so
+      it needs a repository of its own first: the tape import as the
+      first commit, then one commit per patch, tagged by patch level. The
+      owner creates and pushes that repository (we never push). Add it
+      shallow, and note it in `CLAUDE.md` and `docs/porting/README.md`
+- [ ] Inventory what assumes the current model, with file and line: the
+      fixed user window (`machparam.h`, `kernel.ld`, `src/elf32-m68k.ld`,
+      `elf2aout`), `u`/`u0` at a fixed address, swapping (`vm_swap.c`,
+      `vm_sched.c`, `swapin`/`swapout`, `md` swap), `fork`, the exec
+      loaders, `brk`/`sbrk` and `MAXMEM`, `growstack`, the user address
+      checks (`baduaddr`, `useracc`, `copyin`/`copyout`), `ptrace`,
+      `/dev/mem`, and the context switch. Record it under `docs/porting/`
+- [ ] Study how the references split machine-independent code from the
+      memory model: 2.11BSD (PDP-11 segmentation), 4.4BSD's `pmap`
+      interface and NetBSD's `pmap_motorola.c` for the 68030. Find the
+      smallest interface between the kernel and a memory model that both
+      models can implement. It must not exclude a later 68040 MMU model:
+      NetBSD's `pmap_motorola.c` serves both MMUs, so note where they
+      differ (table layout and page sizes, MMU registers through `pmove`
+      on the 68030 but `movec` on the 68040, different `pflush`/`ptest`
+      forms, the 68040 access error frame, cache push and invalidate) and
+      keep those differences inside the model. No 68040 work is
+      planned
 - [ ] Evaluate keeping several user processes in memory (assessment
       section 6): process slots without an MMU (relocation at load,
       `fork` shares the parent's slot) or PMMU virtualization (one
-      address space per process, with protection; testable only on
-      WinUAE or QEMU's 68040). Decide, record the choice, then add
-      implementation tasks
-- [ ] Real MMU and fault validation (D25): on WinUAE or hardware, recheck
-      the code written against the manuals: bus and address error entry
-      and frame trimming (format A/B), FPU exception entry, `fsave`/
-      `frestore` in the context switch and signal frame, and the PMMU
-      code. QEMU's 68030 model emulates none of these
-- [ ] 68030 cache management (D34), on WinUAE: enable the instruction cache
-      with burst fill and clear it after a process switch (`longjmp`), at
-      the end of `exec_clear()` and after `ptrace` writes; decide on the
-      data cache together with `CIIN` for device registers and clears
-      after device input (TTY `READ_BUFFER`, virtio, chip DMA)
-- [ ] Amiga Rigid Disk Block (RDB) partitions: a parser next to the MBR
-      one in `sys/m68k/disklabel.c` (D36). Partitioning and image tools
-      for the Amiga are existing ones, not `fsutil`
-- [ ] Prepare a real hardware board: the Amiga (D7, D25). Add WinUAE to the
-      development flow, a `sys/m68k/<board>/` directory with its `Config`,
-      console and timer drivers, and a boot path (second stage
-      bootloader)
+      address space per process, with protection), as an intermediate
+      model or a step towards full virtual memory
+- [ ] Decide whether one codebase with a configuration-time memory model
+      is feasible: the selection mechanism (a kconfig option and
+      `files.kconf` entries, `machparam.h`), the kernel and userland
+      impact (whether the same a.out binaries and link address work under
+      both models), the cost to the current model (size, speed), how
+      both stay tested, and that the interface leaves room for a 68040
+      model. Record the decision with the implementation tasks
+      below adjusted to it, or drop them if it is not feasible
+- [ ] Put the current model behind the chosen interface with no change in
+      behaviour; `make check` passes unchanged
+- [ ] Add the configuration-time selection, with the current model as
+      the default; a second configuration builds with the virtual memory
+      model as a stub
+- [ ] Build both configurations in `make check` (the virtual memory one
+      build-only until it is implemented)
+- [ ] Plan the virtual memory implementation (68030 PMMU `pmap`, page
+      tables, page faults, protection, then demand paging and swapping
+      pages) as tasks in M12, tested on the M7 platform
+
+## M9: Board bring-up
+
+Bring up the board chosen in M7 next to QEMU `virt`, which stays the
+main test target and keeps passing `make check`.
+
+- [ ] Add the board's emulator to the development flow: install or build
+      steps in `docs/porting/README.md`, and a scripted headless boot in
+      `make check` (console capture, exit on halt), starting with a
+      single-purpose smoke test as in M0
+- [ ] Evaluate a test ROM workflow for short pieces of code: build a
+      custom boot ROM (replacing Kickstart or TOS, as AROS and EmuTOS do)
+      that contains only one test, boot it in the emulator and read the
+      result from the console or the debugger, with no OS or loader in the
+      way. Check what the emulator needs (ROM size, checksum, entry
+      layout) and how a test reports pass or fail and exits. If feasible,
+      add it to `make check` for single-purpose board tests (CPU state,
+      fault frames, PMMU probes, drivers); the M7 probes may start it
+- [ ] Add `sys/m68k/<board>/` with its `Config`, linker script and memory
+      map: where the kernel, the vectors (VBR) and the user window go in
+      the board's RAM, and the devices' register ranges
+- [ ] Kernel loader: the Amiga and the Atari both boot from ROM into a
+      full OS (AmigaOS, TOS), so the kernel is started by a loader
+      program run from there (an AmigaOS executable, or a TOS `.PRG`/
+      `.TTP`). It reads the kernel from a file, finds the board's memory
+      and machine type, takes over the machine (OS interrupts and DMA
+      off, see the CPU state task below), copies the kernel into place
+      and jumps to it with the boot parameters. First check whether
+      NetBSD's existing loader for the board (`loadbsd`) works as is with
+      our kernel (the kernel format it loads, and the registers and boot
+      information it passes); if so, use it unchanged (D52,
+      flagged as transferred code) rather than writing one. Otherwise
+      adapt it, or write a loader with it as the reference, built with the
+      port's GCC unless the OS's executable format or calling conventions
+      need more
+- [ ] Put the CPU in a known state in `startup.S`, whatever the boot
+      firmware left: interrupts masked, VBR set, caches off (D34) and PMMU
+      translation off (`TC`, `TT0`, `TT1`; Atari TOS, for example, enables
+      transparent translation). Check it on the emulator, through its
+      debugger, after the loader starts the kernel
+- [ ] Early polled console, and the clock interrupt from the board's
+      timer through its interrupt controller (`hardclock`, as on `virt`)
+- [ ] Root filesystem on the board: a RAM disk (`md`) holding the root
+      image, embedded in the kernel or passed by the loader if it can;
+      root moves to the disk with the M10 disk driver
+
+## M10: Board hardware support
+- [ ] Hardware serial ports: an interrupt-driven TTY driver for the
+      board's serial ports (on the Amiga the Paula UART), usable as the
+      console and for logins, with `etc/ttys` and `etc/MAKEDEV` entries
+- [ ] Console TTY on screen with keyboard input: a terminal on the
+      board's display and keyboard, so a TTY session is shown on screen
+      and the user types on the keyboard; usable as the console and for
+      logins
+- [ ] Disk driver for the board's hard disk controller (on the Amiga the
+      Gayle IDE port or the A3000/A4000T SCSI controller, on the Atari
+      ACSI, SCSI or IDE), so root mounts from the disk image the emulator
+      attaches instead of the M9 RAM disk. Find how to put `sdcard.img`
+      into the emulator's disk image format (a UAE hardfile, a Hatari
+      ACSI/SCSI/IDE image). If the controller is SCSI, check whether
+      2.11BSD upstream (the M8 reference submodule) has SCSI support that
+      RetroBSD removed and should be reintroduced, against a SCSI layer
+      from 4.4BSD or NetBSD (D52)
+- [ ] Amiga Rigid Disk Block (RDB) partitions, if the board is the Amiga
+      (after the disk driver): a parser next to the MBR one in
+      `sys/m68k/disklabel.c` (D36).
+      Partitioning and image tools for the Amiga are existing ones, not
+      `fsutil`
+- [ ] Battery-backed real-time clock: read the board's clock chip for the
+      time of day at boot (`inittodr`, as RTC 2 on `virt`, D27) and write
+      it when the time is set (`settimeofday`, `date`). For example the
+      MSM6242B or RF5C01 on the Amiga, the MC146818 on the Atari TT
+
+## M11: Hardware validation
+- [ ] Fault validation (D25): on the M7 platform (and hardware where
+      available), recheck the code written against the manuals: bus and
+      address error entry and frame trimming (format A/B), FPU exception
+      entry, and `fsave`/`frestore` in the context switch and signal
+      frame. QEMU's 68030 model emulates none of these. There is no PMMU
+      code yet beyond turning translation off (M9); the PMMU code is
+      validated with M12
+- [ ] 68030 cache management (D34), on the M7 platform: enable the
+      instruction cache with burst fill and clear it after a process
+      switch (`longjmp`), at the end of `exec_clear()` and after `ptrace`
+      writes; decide on the data cache together with `CIIN` for device
+      registers and clears after device input (TTY `READ_BUFFER`, virtio,
+      chip DMA, the M10 disk driver)
+
+## M12: Virtual memory
+- [ ] Implement the virtual memory model planned in M8, as the tasks
+      added there, tested on the M7 platform. Needs the fault handling
+      validated in M11: page faults arrive as bus error frames
+
+## M13: Memory size and tuning
+- [ ] Size the kernel to the board's memory instead of PIC32's 128 KB:
+      the kernel tables (processes, buffers, inodes, open files, clists)
+      and the user window, under each memory model (M8, M12)
+
+## M14: Userland completeness
 - [ ] Data files in target format (D37), then put `adventure`, `fortune`,
       `monop` and `retroforth` back in the build and `rootfs.manifest`:
       `adventure.dat` (`adventure glorkz`), `fortunes.dat` (`strfile`) and
@@ -581,15 +804,6 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       little-endian. Options: generate them on the target, or with host
       generators that write the m68k layout explicitly; swap the
       `retroImage` words at build time
-- [ ] Larger memory configuration and tuning beyond the 128 KB heritage limits
-- [ ] Performance improvements, measured on QEMU before adopting any change.
-      Candidates:
-  - [ ] Alignment experiment: build everything with `-malign-int` (4-byte
-        `int`/`long`/`double`) and compare against the GCC default (D17)
-  - [ ] Signal set calls: `sigemptyset`/`sigaddset`/... are now function
-        calls into `sigsetops.c` instead of header macros (D19). Measure
-        whether the call overhead matters and, if so, inline them without
-        reintroducing GCC-specific constructs
 - [ ] Run ELF executables directly (lowest priority; userland stays
       a.out through `elf2aout`). `sys/kernel/exec_elf.c` loads only a
       single read-write-execute `PT_LOAD` segment, so the two segments
@@ -597,7 +811,99 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       segment whose file size is not below its memory size (a program
       without bss); and it checks `ELFDATA2LSB`/`EM_MIPS`. Fix: accept
       `ELFDATA2MSB`/`EM_68K`, load each `PT_LOAD` (text and data/bss
-      inside the fixed user region), and allow `p_filesz == p_memsz`.
-      It builds only with `options "EXEC_ELF"` (D39).
-      Cost: ELF headers and section tables make files on the root image
-      larger
+      inside the fixed user region, or the M12 address space), and allow
+      `p_filesz == p_memsz`. It builds only with `options "EXEC_ELF"`
+      (D39). Cost: ELF headers and section tables make files on the root
+      image larger
+
+## M15: Performance
+
+Emulators are not cycle accurate for the 68030 (QEMU, and neither
+WinUAE nor Hatari beyond the 68020), so performance is measured on real
+hardware.
+
+- [ ] Set up performance testing on real hardware, with the owner's help
+      (it needs a human at the machine): pick the machine and its
+      configuration (CPU and FPU clock, memory, disk), how a kernel and
+      root image get onto it and boot, how a benchmark is run and its
+      results come back (serial console capture), and a fixed set of
+      benchmarks and timing method so runs compare. Document the steps
+      under `docs/porting/`, marking which ones are manual
+- [ ] Performance improvements, measured on that setup before adopting
+      any change. Candidates:
+  - [ ] Alignment experiment: build everything with `-malign-int` (4-byte
+        `int`/`long`/`double`) and compare against the GCC default (D17)
+  - [ ] Signal set calls: `sigemptyset`/`sigaddset`/... are now function
+        calls into `sigsetops.c` instead of header macros (D19). Measure
+        whether the call overhead matters and, if so, inline them without
+        reintroducing GCC-specific constructs
+
+## M16: Networking (TCP/IP)
+
+RetroBSD removed 2.11BSD's networking: what is left are the socket
+syscall slots (`ifnet`/`errnet` stubs in `sys/kernel/init_sysent.c`),
+`include/netinet/in.h`, a few socket users (`uucp`, `smux`) and the
+PIC32-only userland WIZnet library `src/libwiznet` (removed in M6). None
+of the stack is in this repository's history. Assess first whether
+bringing TCP/IP back is feasible and what it costs; the hardware target
+is SLIP over the M10 serial ports and one Ethernet board per platform.
+
+- [ ] Inventory what is missing against 2.11BSD (the reference
+      submodule from M8): sockets and mbufs (`uipc_*.c`), `net/`, `netinet/`,
+      the interface drivers, the socket syscalls and libc stubs, and the
+      userland (`ifconfig`, `route`, `netstat`, `ping`, `slattach`,
+      `inetd`, `telnet`/`telnetd`, `ftp`/`ftpd`, the resolver). Note what
+      depends on the PDP-11: 2.11BSD runs the network in supervisor space
+      (a separate address space), and `int` is 16 bits there; find where
+      the code relies on that
+- [ ] Compare sources for the stack: 2.11BSD as is, 4.4BSD (`net/`,
+      `netinet/`), or NetBSD parts (D52), for size, how much the kernel
+      interfaces differ, and endianness (the 68030 is big-endian, so
+      network byte order costs nothing)
+- [ ] Assess the fit: kernel size and mbuf memory within the kernel
+      region, interaction with the memory models (M8, M12) and whole-process
+      swapping, interrupt levels for network drivers, and what the
+      smallest useful configuration is (for example `inet` with UDP and
+      TCP, no other protocol families)
+- [ ] Pick the hardware: SLIP (`if_sl`) over the M10 serial ports, and one
+      Ethernet board per platform: `virtio-net` on QEMU `virt` (next to
+      the `virtio-blk` driver `vd`, D36) and one board for the M7
+      platform (for example an Am7990 LANCE card such as the A2065 on the
+      Amiga), with the emulator support each needs
+- [ ] Estimate the effort per part (stack, drivers, syscalls and libc,
+      userland, tests) and decide whether to go ahead; record the decision
+      with implementation tasks, or why not
+
+## M17: Future
+- [ ] Amiga chipset interface (analysis, D56): evaluate how to expose the
+      custom chips (graphics, copper, blitter, audio) and the CIAs to user
+      programs: system calls behind a userland library API, device files
+      in `/dev` that are written to (and read), or both. Cover chip RAM
+      allocation for DMA (bitplanes, copper lists and samples must be in
+      chip RAM), sharing with the kernel's own drivers (console, serial,
+      disk, M10), interrupts, permissions (root or a group, as `/dev/mem`
+      in D48), and the memory models (M8, M12: mapping registers into a
+      process under the PMMU). Record the decision with implementation
+      tasks
+- [ ] Implement the chosen chipset interface and its library, with a test
+      on the Amiga emulator (for example changing a colour register and
+      playing a sample)
+- [ ] Make `basic` a consumer of the chipset interface: `INP`/`OUT`
+      (PEEK/POKE, now `/dev/mem`, D48) or new statements on top of the
+      library, so BASIC programs can drive graphics and sound
+- [ ] Native C compiler (D55): evaluate porting vbcc or the maintained
+      fork of PCC, both with a 68k backend. Compare code quality, the
+      68881 FPU, compatibility with the GCC-built libc (calling
+      convention, 2-byte `int` alignment, D17), what assembler, linker and
+      preprocessor each needs and whether they can produce our a.out
+      (vbcc uses `vasm` and `vlink`), whether compiler and tools fit and
+      run in the user window, and the licence (vbcc's limits
+      redistribution). Record the decision
+- [ ] Port the chosen compiler and its preprocessor, built with the
+      cross GCC and installed in the root image
+- [ ] Native assembler and linker producing a.out executables that the
+      kernel runs (with `ar` and `ranlib` for libraries)
+- [ ] Install what native builds need on the root image: headers in
+      `/include`, `crt0.o`, `libc.a`, `libm.a`, and a `cc` driver
+- [ ] Smoke test: compile, link and run a C program on the target,
+      including floating point and a call into libc

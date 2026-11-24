@@ -6,15 +6,15 @@ PIC32. PIC32 support is abandoned in this fork (see D11), but its code and
 documentation remain in the tree as reference while porting.
 
 In scope: kernel, RetroBSD libc and userland, cross-built with vanilla GCC.
-Out of scope: Amiga hardware (until M6, D25) and the native on-target compilers
-and tools.
+Out of scope: real hardware boards (until the M7 bring-up platform choice, D49) and the native on-target compilers
+and tools (until the M17 native compiler tasks, D55).
 
 ## Documents
 
 | Document                               | Contents                                  |
 |----------------------------------------|-------------------------------------------|
 | [01-assessment.md](01-assessment.md)   | Feasibility assessment and risks          |
-| [02-backlog.md](02-backlog.md)         | Milestone task backlog (M0-M6)            |
+| [02-backlog.md](02-backlog.md)         | Milestone task backlog (M0-M17)           |
 | [03-decisions.md](03-decisions.md)     | Decision record (D1-D29)                  |
 | [smoke/](smoke/)                       | Freestanding toolchain/QEMU smoke test    |
 
@@ -194,7 +194,7 @@ QEMU's 68030 model (checked on QEMU 11.1.2) does not emulate bus errors
 (enabled exceptions only set `FPSR` bits), `fsave`/`frestore` (illegal
 instructions), `rte` format errors or the 68030 PMMU (`pmove` raises a
 line F trap). Code for these is written against the Motorola manuals and
-tested with hand-built frames; real validation is M6, on WinUAE (D25).
+tested with hand-built frames; real validation is M11, on the platform chosen in M7 (D25, D49).
 
 ## Debugging the kernel with GDB
 

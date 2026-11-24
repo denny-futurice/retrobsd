@@ -1,6 +1,6 @@
 /*
  * Partition tables (D36).  Only the MBR for now; an Amiga RDB parser
- * belongs here too (M6).
+ * belongs here too (M10).
  */
 #include <sys/param.h>
 #include <sys/systm.h>
