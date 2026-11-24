@@ -21,6 +21,7 @@ compress </etc/termcap >/tmp/tc.Z && uncompress </tmp/tc.Z | cmp - /etc/termcap 
 cd /; tar cf /tmp/x.tar etc/ttys etc/motd && echo tar `tar tf /tmp/x.tar`
 sh -c 'exit 3'; echo status $?
 sleep 1 & wait; echo waited
+su daemon -c 'cat /dev/null </dev/tty >/dev/zero && echo devs ok'
 echo update `ps ax | grep -c '[u]pdate'`
 echo df `df / | sed -n 2p | awk '{ print $1 }'`
 echo leap `cal 2 2024 | grep -c 29`

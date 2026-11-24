@@ -1,0 +1,14 @@
+# Expected lines for basic.cmds (D48), each matched as a whole line.
+mem crw-r----- root kmem crw-r----- root
+# BASIC prints a space before positive numbers.  @BASIC_WORD0@ is the
+# first text word of /bin/basic, read on the host.
+in:  @BASIC_WORD0@
+in:  0
+out1: /dev/mem: Operation not permitted
+out1: Memory access error in line 10
+bad: /dev/mem: Bad address
+bad: Memory access error in line 10
+user: /dev/mem: Permission denied
+user: Memory access error in line 10
+out0:  305419896
+out0:  0

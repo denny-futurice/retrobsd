@@ -25,6 +25,7 @@ compress ok
 tar etc/ttys etc/motd
 status 3
 waited
+devs ok
 update 1
 df /dev/vd0a
 leap 1
