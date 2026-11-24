@@ -1,0 +1,30 @@
+# Expected lines for userland-e2e.cmds (D47), each matched as a whole line.
+host m68k
+HELLO WORLD
+sort a b c
+sortn 9 10 100
+expr 42
+bc 1267650600228229401496703205376
+awk 12.5 2
+begin 8 3 3
+regex 2
+f00 baz
+grep 1
+passwd @PASSWD_LINES@
+# big-endian: the bytes 41 42 43 44 are the words 4142 4344
+od 0000000 4142 4344
+md5 900150983cd24fb0d6963f7d28e17f72
+cat abc
+files f h
+removed
+1c1
+< a
+---
+> b
+compress ok
+tar etc/ttys etc/motd
+status 3
+waited
+update 1
+df /dev/vd0a
+leap 1

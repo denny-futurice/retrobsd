@@ -112,6 +112,10 @@
 #                 window survives fork, an a.out too big for it gets ENOMEM
 #        userland the top-level make: tools, kernel, userland and sdcard.img
 #                 (D45); every manifest file exists, fsutil --check is clean
+#        userland-e2e
+#                 sdcard.img boots to multi-user, root logs in and the core
+#                 commands in userland-e2e.cmds give userland-e2e.expect
+#                 (D47); clean halt
 #
 # The tests from startup on link sys/m68k/startup.S and locore.S.  The
 # machdep tests add sys/m68k/machdep.c and ktest.c, which stubs the rest of
@@ -487,6 +491,69 @@ run_userland() {
     echo "PASS userland"
 }
 
+# userland-e2e: boot the real sdcard.img (D47) through init, rc, getty and login,
+# log in as root, type the commands in userland-e2e.cmds one per line and check
+# that every line of userland-e2e.expect appears in the console output, then halt
+# and check the filesystem.  Each command ends with "echo @@N@", and the
+# next one is typed only after that marker has come back.
+run_userland_e2e() {
+    d=$out/userland-e2e log=$out/userland-e2e.log
+    rm -rf "$d" && mkdir -p "$d"
+    if ! make -C "$top" -j"$(nproc 2>/dev/null || echo 2)" >"$log" 2>&1; then
+        echo "FAIL userland-e2e: make failed, see $log" >&2
+        return 1
+    fi
+    cp "$top/sdcard.img" "$d/disk.img" && truncate -s 220M "$d/disk.img"
+    mkfifo "$d/in"
+    timeout 300 qemu-system-m68k -M virt -cpu m68030 -m 16M -kernel "$board/unix.elf" \
+        -nographic -serial stdio -monitor none \
+        -drive file="$d/disk.img",if=none,format=raw,id=a -device virtio-blk-device,drive=a \
+        <"$d/in" >"$d/console" 2>/dev/null &
+    qpid=$!
+    exec 3>"$d/in"
+    # wait_for pattern seconds: poll the console output for a line.
+    wait_for() {
+        i=0
+        while [ $i -lt $(($2 * 5)) ]; do
+            tr -d '\r' <"$d/console" | grep -q -- "$1" && return 0
+            kill -0 $qpid 2>/dev/null || return 1
+            sleep 0.2; i=$((i + 1))
+        done
+        return 1
+    }
+    ok=1 n=0
+    if wait_for 'login: $' 120; then
+        printf 'root\r' >&3
+        wait_for '^Password:' 10 && printf '\r' >&3
+        wait_for '^Welcome to RetroBSD' 10 || ok=
+    else
+        ok=
+    fi
+    if [ -n "$ok" ]; then
+        while IFS= read -r cmd; do
+            case "$cmd" in ''|'#'*) continue ;; esac
+            n=$((n + 1))
+            printf '%s; echo @@%s@\r' "$cmd" $n >&3
+            wait_for "^@@$n@" 30 || { echo "FAIL userland-e2e: no prompt after: $cmd" >&2; ok=; break; }
+        done <"$here/userland-e2e.cmds"
+    fi
+    [ -n "$ok" ] && printf 'sync; halt\r' >&3
+    exec 3>&-
+    wait $qpid; rc=$?
+    tr -d '\r' <"$d/console" >"$d/console.txt"
+    [ -n "$verbose" ] && { echo "--- userland-e2e output"; sed 's/^/  /' "$d/console.txt"; }
+    [ -n "$ok" ] || { echo "FAIL userland-e2e: see $d/console.txt" >&2; tail -5 "$d/console.txt" >&2; return 1; }
+    [ $rc = 0 ] || { echo "FAIL userland-e2e: QEMU exit status $rc, see $d/console.txt" >&2; return 1; }
+    sed "s/@PASSWD_LINES@/$(wc -l <"$top/etc/passwd" | tr -d ' ')/" "$here/userland-e2e.expect" |
+    while IFS= read -r want; do
+        case "$want" in ''|'#'*) continue ;; esac
+        grep -qFx -- "$want" "$d/console.txt" || echo "FAIL userland-e2e: no line '$want'"
+    done >"$d/missing"
+    [ -s "$d/missing" ] && { cat "$d/missing" >&2; echo "see $d/console.txt" >&2; return 1; }
+    fsutil_clean userland-e2e "$d/disk.img" || return 1
+    echo "PASS userland-e2e"
+}
+
 run_test() {
     name=$1
     [ "$name" = kernel ] && { run_kernel; return; }
@@ -496,6 +563,7 @@ run_test() {
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
     [ "$name" = userland ] && { run_userland; return; }
+    [ "$name" = userland-e2e ] && { run_userland_e2e; return; }
     case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp|libmem) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
@@ -592,7 +660,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
         consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
-        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp libmem userland}; do
+        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp libmem userland userland-e2e}; do
     run_test "$t" || status=1
 done
 exit $status

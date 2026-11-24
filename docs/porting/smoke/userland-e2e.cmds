@@ -1,0 +1,27 @@
+# Core commands for the userland-e2e smoke test (D47), typed one line at a time at
+# the root prompt.  Each prints a labelled line; userland-e2e.expect has them all.
+echo host `uname -n`
+echo hello world | tr a-z A-Z
+echo sort `printf '%s\n' c a b a | sort | uniq`
+echo sortn `printf '10\n9\n100\n' | sort -n`
+echo expr `expr 6 \* 7`
+echo bc `echo '2^100' | bc`
+echo 3 4 | awk '{ print "awk", $1 * $2 + 0.5, NF }'
+awk 'BEGIN { print "begin", 7 + 1, int(3.7), length("abc") }' </dev/null
+printf 'foo\nbar\nfoobar\n' | awk '/^fo+(bar)?$/ { n++ } END { print "regex", n }'
+echo foo bar | sed -e 's/oo/00/' -e 's/bar$/baz/'
+echo grep `grep -c '^root:' /etc/passwd`
+echo passwd `wc -l </etc/passwd`
+printf ABCD >/tmp/abcd; echo od `od -x /tmp/abcd | sed 1q`
+echo md5 `printf abc | md5`
+mkdir /tmp/t && cd /tmp/t && echo abc >f && cp f g && mv g h && echo cat `cat h`
+echo files `ls`; cd /; rm -r /tmp/t; test -d /tmp/t || echo removed
+echo a >/tmp/a; echo b >/tmp/b; diff /tmp/a /tmp/b
+compress </etc/termcap >/tmp/tc.Z && uncompress </tmp/tc.Z | cmp - /etc/termcap && echo compress ok
+cd /; tar cf /tmp/x.tar etc/ttys etc/motd && echo tar `tar tf /tmp/x.tar`
+sh -c 'exit 3'; echo status $?
+sleep 1 & wait; echo waited
+echo update `ps ax | grep -c '[u]pdate'`
+echo df `df / | sed -n 2p | awk '{ print $1 }'`
+echo leap `cal 2 2024 | grep -c 29`
+rm -f /tmp/abcd /tmp/a /tmp/b /tmp/tc.Z /tmp/x.tar
