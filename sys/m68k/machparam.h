@@ -86,6 +86,12 @@
 #define USER_DATA_START         KERNEL_DATA_END
 #define USER_DATA_END           (USER_DATA_START + USER_DATA_SIZE)
 
+/*
+ * MAXMEM is the most core a process may have: text, data, heap and stack
+ * together (D46).  It is the whole user window.
+ */
+#define MAXMEM                  USER_DATA_SIZE
+
 #define stacktop(siz)           (USER_DATA_END)
 #define stackbas(siz)           (USER_DATA_END-(siz))
 

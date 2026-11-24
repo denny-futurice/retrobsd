@@ -4,8 +4,6 @@
  * specifies the terms and conditions for redistribution.
  */
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
 
 extern char _end[];
 const char *_curbrk = _end;
@@ -18,18 +16,11 @@ sbrk (int incr)
 	if (incr != 0) {
 		/* calculate and pass break address */
 		const void *addr = _curbrk + incr;
-		if (_brk (addr) != -1) {
-			/* add increment to curbrk */
-			_curbrk = addr;
-		} else {
-                        extern const char *__progname;
-                        if (__progname && *__progname) {
-                                static const char message[] = ": Out of memory\n";
-                                write(2, __progname, strlen(__progname));
-                                write(2, message, sizeof(message) - 1);
-                                errno = ENOMEM;
-                        }
-                }
+		/* on failure _brk has set errno; malloc, sh and csh test for -1 (D46) */
+		if (_brk (addr) == -1)
+			return (void*) -1;
+		/* add increment to curbrk */
+		_curbrk = addr;
 	}
 	/* return old break address */
 	return oldbrk;

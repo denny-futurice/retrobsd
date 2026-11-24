@@ -86,7 +86,8 @@ int exec_check(struct exec_params *epp)
         if (execsw[i].es_check == NULL)
             continue;
         error = (*execsw[i].es_check)(epp);
-        if (error == 0)
+        /* ENOEXEC is "not my format"; anything else is this format's answer */
+        if (error != ENOEXEC)
             break;
     }
     return error;
