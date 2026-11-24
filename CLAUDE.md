@@ -10,19 +10,21 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 
 - **PIC32 is abandoned** (D11). Breaking the PIC32 build is fine, and code is not refactored to
   support both targets. Everything below this section describes the PIC32/Clang system: treat it
-  as **reference material** for how the tree works, not as a build that must keep passing. Do not
-  delete PIC32 code or docs until told to.
+  as **reference material** for how the tree works, not as a build that must keep passing. PIC32
+  code and docs are removed in backlog milestone M6 (D54), and only by its tasks.
 - **Toolchain:** vanilla GCC from Debian, `m68k-linux-gnu-gcc`, used freestanding (no libc for the
   kernel, RetroBSD's own libc for userland). Flags verified in D10:
   `-mcpu=68030 -m68881 -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie
   -fno-stack-protector -std=gnu99`. Hardware FPU is mandatory (D12): no soft float. Only the
   64-bit integer helpers come from `src/libc/runtime/`.
 - **No MMU**, fixed user region and whole-process swapping as on PIC32. Target is big-endian.
-- **Out of scope:** Amiga hardware and native on-target compilers/tools (`as`, `ld`, `cc`, `adb`,
-  `aout`, `ccom`, `lcc`, `smlrc`, ...).
+- **Out of scope:** board hardware until the M7 platform choice (D49), and native on-target
+  compilers/tools (`as`, `ld`, `cc`, `adb`, `aout`, `ccom`, `lcc`, `smlrc`, ...) until the M17
+  native compiler tasks (D55).
 - **QEMU limits (D25):** QEMU's 68030 has no bus/address errors, FPU exceptions, `fsave`/`frestore`
   or PMMU. Write that code against the Motorola manuals and test it with hand-built frames; real
-  validation is M6 on WinUAE (Amiga). Do not integrate other emulators.
+  validation is M11 on the bring-up platform chosen in M7 (D49: Hatari, WinUAE and its forks, FS-UAE
+  or ARAnyM). Do not integrate other emulators before that choice.
 - **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
   (toolchain/boot, FPU, the kernel `startup.S`, `machdep.c`, trap handling, the clock, system calls and
   a whole-kernel build and boot, a boot from an `fsutil` root image, the libc machine layer, the full userland and root image build, an end-to-end userland test at a root shell, and BASIC `INP`/`OUT` through `/dev/mem`) on QEMU, plus a host test of `tools/fsutil`'s big-endian output
@@ -38,9 +40,13 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 
 - **Branches (D15):** commit locally on `retrobsd-68k`. Never push, and do not touch `master` or
   merge/rebase from `upstream`; the owner pushes. Upstream patches are cherry-picked by hand only.
-- **Reference code (D11, D13):** do not delete PIC32 or MIPS code or docs (`sys/pic32/`,
-  `src/libc/mips/`, ...) until told to. New m68k code goes in `sys/m68k/`, `sys/m68k/virt/` and
-  `src/libc/m68k/`; build files are converted in place (D14).
+- **Reference code (D11, D13, D54):** delete PIC32 or MIPS code or docs (`sys/pic32/`,
+  `src/libc/mips/`, ...) only as part of the M6 cleanup tasks. New m68k code goes in
+  `sys/m68k/`, `sys/m68k/virt/` and `src/libc/m68k/`; build files are converted in place (D14).
+- **Reference and copied code (D52):** 4.4BSD (hp300, luna68k) and NetBSD are valid references;
+  NetBSD code may be copied to fill in an implementation, keeping its copyright notice and naming
+  the source file. Always tell the user when implementation code is transferred: source, file,
+  version, what was changed and the licence.
 - **Record decisions:** a change of direction or a new technical choice gets a new numbered entry in
   `docs/porting/03-decisions.md`. Do not rewrite old entries; mark them superseded by the new one.
 - **Keep the backlog honest:** tick a task in `docs/porting/02-backlog.md` only when the work exists
