@@ -1045,3 +1045,45 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     `brk` check, the bss term, the `execve` loop or `sbrk` is caught.
   - The stack can still grow down into a heap that has been extended
     after it; `growstack` catches it only at the next trap (as before).
+
+## D47: end-to-end userland smoke test and awk fixes
+
+- **Context:** the last M5 task boots `sdcard.img` to a shell and checks
+  the core commands. The first run showed that `awk` printed `$0` for
+  any program. That bug is not m68k-specific: RetroBSD's switch of the
+  V7 awk lexer from lex to flex broke it on PIC32 too, as a native host
+  build of the same sources shows. The hostname in `etc/rc` was still
+  `pic32`.
+- **Decision:**
+  - Smoke test `userland-e2e` (`run.sh`; named for the range of
+    userland it covers, not just the shell) boots the real image through `init`,
+    `rc`, `getty` and `login`, and drives the console through a FIFO.
+    It logs in as root and types each line of `userland-e2e.cmds` followed by
+    `echo @@N@`, waiting for that marker before sending the next line.
+    It then sends `sync; halt` and requires QEMU to exit with status 0.
+    Every line of `userland-e2e.expect` must appear as a whole console line;
+    `@PASSWD_LINES@` stands for the line count of `etc/passwd`. Expected
+    values are computed independently (for example `2^100`, the MD5 of
+    `abc`, and the big-endian `od -x` words).
+  - `etc/rc` sets the hostname to `m68k`.
+  - The `awk` fixes:
+    - `awk.lx.l`: flex ignores the custom `input()` and reads `yyin`,
+      so awk read its input data as the program. A `YY_INPUT` now calls
+      `input()`, which reads the program string `lexprog` up to its NUL
+      (otherwise `yyin`, for `-f`).
+    - `awk.lx.l`: the start-state switch (`INITIAL` to `A`, and `sc` to
+      `A` returning `}`) now uses flex's `YY_START`.
+    - `parse.c`: `ALLOC` sizes nodes as `sizeof(node) + n` pointers,
+      because `BOTCH` became 0.
+    - `b.c`: `cfoll` shares equal follow sets, so `freetr` clears the
+      duplicates before freeing them; `cgotofn` no longer frees
+      `state[0]`, which is `foll[0]`. Both were double frees, found
+      with ASan.
+  - Known limits of this V7 awk that remain: `/=/` lexes as the `/=`
+    operator (write `/[=]/`), and a program with only `BEGIN` still
+    reads its standard input.
+- **Consequences:** `make check` boots the full system and exercises
+  the shell, text tools, `awk`, `bc`, files, pipes, background jobs,
+  `ps`, `df` and `cal`. Each run takes a few minutes, mostly for the
+  build. The hostname, a bogus expected line and reverting the `awk`
+  fixes are each caught.

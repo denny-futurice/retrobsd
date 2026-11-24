@@ -528,7 +528,12 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       bss missing from the exec limit, `execve` losing `ENOMEM` to
       `ENOEXEC`, and libc `sbrk` returning the old break instead of -1.
       Smoke test `libmem`; reverting each fix is caught
-- [ ] Boot to a shell in QEMU; smoke test core commands
+- [x] Boot to a shell in QEMU; smoke test core commands
+      Done (D47): smoke test `userland-e2e` logs in as root on the real
+      `sdcard.img` and checks 25 command lines (text tools, `awk`, `bc`,
+      `od`, `md5`, files, `diff`, `compress`, `tar`, jobs, `ps`, `df`,
+      `cal`), then halts. Fixed `awk` (broken since the switch to flex)
+      and set the hostname to `m68k`
 - [ ] Revisit `basic` PEEK/POKE (low priority): they are no-ops since the
       `ufetch`/`ustore` syscalls were removed (D24). Options: direct memory
       access, `/dev/mem`, or keep them disabled
