@@ -1087,3 +1087,39 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   `ps`, `df` and `cal`. Each run takes a few minutes, mostly for the
   build. The hostname, a bogus expected line and reverting the `awk`
   fixes are each caught.
+
+## D48: BASIC INP/OUT through /dev/mem
+
+- **Context:** `basic`'s `OUT addr,value` and `INP(addr)` (PEEK/POKE)
+  used the RetroBSD `ustore`/`ufetch` syscalls, removed in D24, and have
+  been no-ops since. They should work again, at the least effort, and
+  only for root. The kernel already has `/dev/mem` (`sys/m68k/mem.c`),
+  which reads and writes kernel RAM and the user window.
+- **Decision:**
+  - `basic` reads and writes the 32-bit word at `addr & ~3` (as
+    `ufetch`/`ustore` did) through `/dev/mem`: read-only for `INP`,
+    read-write for `OUT`. If the open, seek or transfer fails it prints
+    the `perror` message and stops the program with a new "Memory
+    access" error. No syscalls are re-added.
+  - `/dev/mem` and `/dev/kmem` become mode 0640 (root, group wheel; `ps`
+    and `pstat` are setgid wheel). They were 0664, so anyone could read
+    them.
+  - The 4.4BSD securelevel policy is kept: `init` raises the securelevel
+    to 1 in multi-user mode, where opening `/dev/mem` for writing gives
+    `EPERM` even for root. So `OUT` works in single-user mode only, which
+    is acceptable: BASIC programs that poke memory are not expected to
+    run in multi-user mode. (Without an MMU this protects little, since
+    any program can write kernel memory through a pointer.)
+  - `rootfs.manifest` gave `/dev/null`, `/dev/zero` and `/dev/tty` mode
+    `666`, which `fsutil` reads with `strtoul(..., 0)` as decimal (octal
+    1232). Non-root users could not read them. They are now `0666`.
+- **Consequences:**
+  - Smoke test `basic` uses the same console driver as `userland-e2e`
+    (`run_console`), so it fails separately. Two new line types in the
+    `.cmds` files, `@send` (type without a marker) and `@wait` (wait for
+    a console line), let it drop to single-user with `kill -TERM 1`.
+    Making `/dev/mem` readable again, opening it read-write for `INP`,
+    dropping the error, or dropping the alignment is caught; so is the
+    old `/dev/null` mode, by a new `userland-e2e` line.
+  - Only RAM is reachable; device registers are not. On the Amiga,
+    reaching the custom chips and CIAs is an M6 task.

@@ -534,11 +534,22 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       `od`, `md5`, files, `diff`, `compress`, `tar`, jobs, `ps`, `df`,
       `cal`), then halts. Fixed `awk` (broken since the switch to flex)
       and set the hostname to `m68k`
-- [ ] Revisit `basic` PEEK/POKE (low priority): they are no-ops since the
+- [x] Revisit `basic` PEEK/POKE (low priority): they are no-ops since the
       `ufetch`/`ustore` syscalls were removed (D24). Options: direct memory
       access, `/dev/mem`, or keep them disabled
+      Done (D48): `INP`/`OUT` read and write a word through `/dev/mem`,
+      which is now mode 0640, so only root can use them; `OUT` works at
+      securelevel 0 (single-user) only. Also fixed `/dev/null`, `/dev/zero`
+      and `/dev/tty`, whose manifest mode `666` was read as decimal.
+      Smoke test `basic`
 
 ## M6: Optional / future
+- [ ] Amiga: let `basic` `INP`/`OUT` (PEEK/POKE) reach the custom chip
+      registers (graphics, sound) and the CIAs. `mmrw` in `sys/m68k/mem.c`
+      only allows kernel RAM and the user window (D48); add the Amiga
+      register ranges for `/dev/mem` and check on WinUAE that a BASIC
+      program can, for example, change a colour register or play a
+      sample
 - [ ] Evaluate keeping several user processes in memory (assessment
       section 6): process slots without an MMU (relocation at load,
       `fork` shares the parent's slot) or PMMU virtualization (one

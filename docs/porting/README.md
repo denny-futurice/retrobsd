@@ -156,6 +156,7 @@ on the memory disk `md0` (D41); the `swap` test relinks it with swap on `vd0b`.
 | `libmem` | the per-process limit is the 256 KB user window (D46): a 160 KB program runs, `sbrk` stops at the stack with `ENOMEM`, a full window survives `fork` and swapping, an a.out too big for the window gets `ENOMEM` | `libmem ok`, exit status 0 |
 | `userland` | the top-level `make` (D45): tools, kernel, userland and `sdcard.img`; no manifest file is missing and `fsutil --check` is clean | `PASS userland` |
 | `userland-e2e` | `sdcard.img` boots to multi-user (D47); root logs in on the console, the commands in `userland-e2e.cmds` print every line of `userland-e2e.expect`, and `halt` stops QEMU cleanly | `PASS userland-e2e` |
+| `basic` | as `userland-e2e`, with `basic.cmds` and `basic.expect` (D48): as root, BASIC `INP` reads its own first text word through `/dev/mem`; `OUT` is refused at securelevel 1 and works after `kill -TERM 1` to single-user; a bad address and a non-root user get errors | `PASS basic` |
 | `libsignal` | `sigaction` and the trampoline (D31): handler arguments and mask, every register back after a handler that clobbers them, `oact`, `SIG_IGN`, invalid signals | `libsignal ok`, exit status 0 |
 
 `sh docs/porting/smoke/run.sh [test]` (or `make check`) runs all tests, or just the named one. Set `CROSS=` to use a

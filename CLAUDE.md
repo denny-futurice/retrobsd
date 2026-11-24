@@ -25,7 +25,7 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
   validation is M6 on WinUAE (Amiga). Do not integrate other emulators.
 - **Test:** `make check` (runs `sh docs/porting/smoke/run.sh`) runs the single-purpose smoke tests
   (toolchain/boot, FPU, the kernel `startup.S`, `machdep.c`, trap handling, the clock, system calls and
-  a whole-kernel build and boot, a boot from an `fsutil` root image, the libc machine layer, the full userland and root image build, and an end-to-end userland test at a root shell) on QEMU, plus a host test of `tools/fsutil`'s big-endian output
+  a whole-kernel build and boot, a boot from an `fsutil` root image, the libc machine layer, the full userland and root image build, an end-to-end userland test at a root shell, and BASIC `INP`/`OUT` through `/dev/mem`) on QEMU, plus a host test of `tools/fsutil`'s big-endian output
   (`qemu-system-m68k -M virt -cpu m68030`; the package is `qemu-system-misc`).
 - **Editor/clangd:** `sys/`, `src/` and `include/compile_flags.txt` plus the top `.clangd` make
   clangd parse for m68k against the tree's headers only (see docs/porting/README.md). Keep them in
