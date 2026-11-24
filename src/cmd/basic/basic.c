@@ -47,7 +47,7 @@
  *  NEXT [v]                - End counted loop
  *  OPEN#n,"name","opts"    - Open file (0-9), opts are same as "fopen()"
  *  ORDER line              - Position data read pointer
- *  OUT port,expr           - Write to I/O port
+ *  OUT addr,expr           - Write the word at addr (/dev/mem, root)
  *  PRINT expr[,expr ...]   - Print to console
  *  PRINT#n,...             - Print to file (0-9)
  *  READ var[,var ...]      - Read data from program statements
@@ -81,7 +81,7 @@
  *  ABS(value)          - Returns absolute value of argument
  *  RND(value)          - Returns random number from 0 to (value-1)
  *  KEY()               - Test for key from keyboard
- *  INP(port)           - Read an I/O port
+ *  INP(addr)           - Read the word at addr (/dev/mem, root)
  *  SIN(value*10^6)     - 10^6*SIN(x)
  *  COS(value*10^6)     - 10^6*COS(x)
  *  TAN(value*10^6)     - 10^6*TAN(x)
@@ -104,15 +104,13 @@
 #else
 #   include <stdio.h>
 #endif
-/* PEEK/POKE are no-ops: the ufetch/ustore syscalls were removed (D24). */
-#define ustore(addr, value)  /*empty*/
-#define ufetch(addr)         0
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
 #include <time.h>
 #include <limits.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <curses.h>
 #include <signal.h>
 #include <math.h>
@@ -232,7 +230,8 @@ static char *error_messages[] = {
     "Input",
     "Dimension",
     "Data",
-    "Out of memory"
+    "Out of memory",
+    "Memory access"
     };
 
 struct line_record {
@@ -307,14 +306,44 @@ unsigned kbtst ()
     return chr;
 }
 
+/*
+ * OUT and INP write and read the word at addr through /dev/mem (D48),
+ * which only root can open.  INP opens it read-only; OUT needs it
+ * read-write, which the kernel refuses above securelevel 0, so in
+ * practice OUT works in single-user mode only.
+ */
+void error(unsigned en);
+
+static void memword(int addr, unsigned *value, int wr)
+{
+    static int fd[2] = { -1, -1 };
+    int n;
+
+    if (fd[wr] < 0 && (fd[wr] = open("/dev/mem", wr ? O_RDWR : O_RDONLY)) < 0)
+        goto fail;
+    if (lseek(fd[wr], (off_t) (addr & ~3), 0) == -1)
+        goto fail;
+    n = wr ? write(fd[wr], value, sizeof *value) : read(fd[wr], value, sizeof *value);
+    if (n == sizeof *value)
+        return;
+fail:
+    perror("/dev/mem");
+    error(13);
+}
+
 void out (int addr, int value)
 {
-    ustore (addr, value);
+    unsigned v = value;
+
+    memword(addr, &v, 1);
 }
 
 unsigned in (int addr)
 {
-    return ufetch (addr);
+    unsigned v;
+
+    memword(addr, &v, 0);
+    return v;
 }
 
 int _sin (int value)
