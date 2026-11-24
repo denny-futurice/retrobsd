@@ -6,6 +6,10 @@
 #include	"awk.def.h"
 #include	"awk.h"
 #define YY_NO_INPUT	/* defeat lex */
+/* flex reads through YY_INPUT, not input(): the program text may be in lexprog */
+int	input(void);
+#define YY_INPUT(buf, result, max_size) \
+	{ int c = input(); result = c ? (buf[0] = c, 1) : YY_NULL; }
 extern int	mustfld;
 
 int	lineno	= 1;
@@ -23,15 +27,15 @@ D	[0-9]
 WS	[ \t]
 
 %%
-        /* witchcraft */
-        /* switch (yybgin-yysvec-1) {
-	case 0:
+        /* witchcraft: lex's yybgin-yysvec-1 is flex's YY_START */
+        switch (YY_START) {
+	case INITIAL:
 		BEGIN A;
 		break;
 	case sc:
 		BEGIN A;
 		return('}');
-	} */
+	}
 
 <A>^\n		lineno++;
 <A>^{WS}*#.*\n	lineno++;	/* strip comment lines */
@@ -149,13 +153,13 @@ WS	[ \t]
 %%
 
 int
-input()
+input(void)
 {
 	int c;
 	extern char *lexprog;
 
-	if (yyin == NULL)
-		c = *lexprog++;
+	if (lexprog != NULL)	/* flex sets yyin to stdin if it is NULL */
+		c = *lexprog ? *lexprog++ : 0;
 	else
 		c = getc(yyin);
 	if (c == '\n')

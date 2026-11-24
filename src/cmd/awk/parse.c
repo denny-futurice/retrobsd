@@ -6,7 +6,7 @@
 node *ALLOC(int n)
 {
 	register node *x;
-	x = (node *) malloc(sizeof(node) + (n-1)*sizeof(node *));
+	x = (node *) malloc(sizeof(node) + n*sizeof(node *));	/* narg[] is empty (BOTCH) */
 	if (x == NULL)
 		error(FATAL, "out of space in ALLOC");
 	return(x);

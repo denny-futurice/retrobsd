@@ -92,9 +92,15 @@ penter(node *p)	/* set up parent pointers and leaf indices */
 void
 freetr(node *p)	/* free parse tree and follow sets */
 {
+	int i, j;
+
 	switch(type(p)) {
 		LEAF
-			xfree(foll[(int) left(p)]);
+			i = (int) left(p);
+			for (j = 0; j <= line; j++)	/* cfoll shares equal sets */
+				if (j != i && foll[j] == foll[i])
+					foll[j] = NULL;
+			xfree(foll[i]);
 			xfree(p);
 			break;
 		UNARY
@@ -492,7 +498,8 @@ struct fa *cgotofn()
 		}
 	}
 	for (i=0; i<=n; i++) {
-		xfree(state[i]);	/* free state[i] */
+		if (i != 0)		/* state[0] is foll[0], freed by freetr */
+			xfree(state[i]);	/* free state[i] */
 		pfa = where[i];
 		pfa->st = where[0];
 		dprintf("state %d: (%o)\n", i, pfa, NULL);
