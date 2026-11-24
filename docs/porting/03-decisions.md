@@ -1006,3 +1006,42 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     Reverting each fix above (or adding a bogus manifest entry) is caught.
   - Still PIC32-flavoured: `/etc/rc` sets hostname `pic32`, and
     `etc/MAKEDEV` knows `sd*` only.
+
+## D46: the per-process memory limit is the user window
+
+- **Context:** `MAXMEM` in `sys/include/param.h` was 96 KB, sized for
+  PIC32's 128 KB of RAM. It caps `exec` (`exec_estab`) and `brk`
+  (`kern_mman.c`) and is printed as "user mem". The m68k user window is
+  256 KB (`USER_DATA_SIZE`, D16), so programs between 96 and 256 KB were
+  refused. Testing the new limit found three more bugs:
+  - `exec_estab` summed text, data, heap and stack but not bss, so an
+    a.out whose bss reached into the stack was loaded and run (in this
+    case jumping to address 0, which hung the machine).
+  - `execve` tried every format handler until one returned 0, so the
+    a.out handler's `ENOMEM` was overwritten by the script handler's
+    `ENOEXEC`.
+  - libc `sbrk` (from RetroBSD's MIPS libc) printed "Out of memory" and
+    returned the *old* break on failure. 2.11BSD returns -1, and
+    `malloc`, `sh` and `csh` test for -1; so they took a failed `sbrk`
+    as success and used memory beyond the break, which here can be the
+    stack.
+- **Decision:**
+  - `MAXMEM` moves to `sys/m68k/machparam.h` as `USER_DATA_SIZE`: text,
+    data, bss, heap and stack together may fill the window. The `brk`
+    check then stops the heap at the current stack.
+  - `exec_estab` counts `bss.len` in the `MAXMEM` sum.
+  - `execve` stops at the first handler that returns anything other
+    than `ENOEXEC` ("not my format"), as NetBSD's `check_exec` does.
+  - `src/libc/m68k/sys/sbrk.c` returns -1 on failure, with `errno` set by
+    the `_brk` stub, and no longer prints a message. The MIPS copy is
+    left as it is (D11).
+- **Consequences:**
+  - The banner says "user mem = 256 kbytes"; a process can grow to
+    256 KB, and whole-process swapping moves up to that much.
+  - Smoke test `libmem`: an init with 160 KB of bss runs; `sbrk` in 4 KB
+    steps fails with `ENOMEM` within 16 KB of the stack; a `fork` with the
+    window full swaps both processes and the patterns survive; an a.out
+    with 255 KB of bss is refused with `ENOMEM`. Reverting `MAXMEM`, the
+    `brk` check, the bss term, the `execve` loop or `sbrk` is caught.
+  - The stack can still grow down into a heap that has been extended
+    after it; `growstack` catches it only at the next trap (as before).

@@ -107,6 +107,9 @@
 #                 conversions to and from float and double
 #        libfp    floating point in libc and libm (D44): printf, scanf, atof,
 #                 strtod, ecvt, frexp, ldexp, HUGE_VAL and the libm functions
+#        libmem   the per-process limit is the user window (D46): a 160 KB
+#                 program runs, sbrk stops at the stack with ENOMEM, a full
+#                 window survives fork, an a.out too big for it gets ENOMEM
 #        userland the top-level make: tools, kernel, userland and sdcard.img
 #                 (D45); every manifest file exists, fsutil --check is clean
 #
@@ -155,7 +158,7 @@ expected() {
     kernel) echo "panic: No root filesystem found!" ;;
     rootfs) echo "rootfs ok: end of /etc/motd" ;;
     swap|mdswap) echo "swap ok" ;;
-    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp) echo "$1 ok" ;;
+    libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp|libmem) echo "$1 ok" ;;
     esac
 }
 
@@ -493,7 +496,7 @@ run_test() {
     [ "$name" = swap ] && { run_swap; return; }
     [ "$name" = mdswap ] && { run_mdswap; return; }
     [ "$name" = userland ] && { run_userland; return; }
-    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp) run_libc $name; return ;; esac
+    case $name in libcrt0|libstring|libsys|libsetjmp|libsignal|libendian|libwait|libint64|libfp|libmem) run_libc $name; return ;; esac
     log=$out/$name-build.log buildfail=
     rm -f "$log" "$out/$name.elf"
     # Tests from startup on use the kernel's own startup code and memory map.
@@ -589,7 +592,7 @@ for t in ${1:-hello fpu startup cacr bootinfo kstring useraddr udelay halt swtch
         sysargs sysret sysrestart nosys msec execstack execclear pipe2 ptrace \
         sigframe sigreturn sigfpu sigfault uentry icode ttyrx ttyrxopen intrnest \
         consdev errmsg nlist vdprobe vdread vdwrite vdpart vdbytes mdio elf2aout fsutil kernel rootfs swap mdswap \
-        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp userland}; do
+        libcrt0 libstring libsys libsetjmp libsignal libendian libwait libint64 libfp libmem userland}; do
     run_test "$t" || status=1
 done
 exit $status

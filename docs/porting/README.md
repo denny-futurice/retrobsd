@@ -153,6 +153,7 @@ on the memory disk `md0` (D41); the `swap` test relinks it with swap on `vd0b`.
 | `libwait`  | `<sys/wait.h>` (D37): a child's exit code, `SIGTERM`, `SIGQUIT` with a core dump and a stop, through the `W*` macros and the `union wait` fields, and fields set by hand at the bits the kernel uses | `libwait ok`, exit status 0 |
 | `libint64` | the compiler-rt 64-bit helpers (D43): signed and unsigned division and modulo, shifts by a variable count, and 64-bit integer to and from `float`/`double` with ties to even and sticky bits | `libint64 ok`, exit status 0 |
 | `libfp` | floating point in libc and libm (D44): `printf` `%e`/`%f`/`%g`, `scanf` `%f`/`%lf`, `atof`/`strtod`, `ecvt`/`gcvt`, `modf`, `frexp`/`ldexp`, `isnan`/`isinf`, `HUGE_VAL` as Inf, and 20 libm results to 1e-14, `fmod` included | `libfp ok`, exit status 0 |
+| `libmem` | the per-process limit is the 256 KB user window (D46): a 160 KB program runs, `sbrk` stops at the stack with `ENOMEM`, a full window survives `fork` and swapping, an a.out too big for the window gets `ENOMEM` | `libmem ok`, exit status 0 |
 | `userland` | the top-level `make` (D45): tools, kernel, userland and `sdcard.img`; no manifest file is missing and `fsutil --check` is clean | `PASS userland` |
 | `libsignal` | `sigaction` and the trampoline (D31): handler arguments and mask, every register back after a handler that clobbers them, `oact`, `SIG_IGN`, invalid signals | `libsignal ok`, exit status 0 |
 

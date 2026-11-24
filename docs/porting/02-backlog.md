@@ -516,7 +516,7 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       Done (D45): those are not built or now pass; the failures fixed were
       the `linux` macros, noreturn `exit`/`abort`, `abs`/`labs`/`fabs`,
       `scm`, `backgammon` and the big-endian `tip` union
-- [ ] Per-process memory limit: `MAXMEM` in `sys/include/param.h` is
+- [x] Per-process memory limit: `MAXMEM` in `sys/include/param.h` is
       96 KB (PIC32 heritage), but the m68k user window is 256 KB
       (`USER_DATA_START`-`USER_DATA_END`). `exec_subr.c` refuses programs
       whose text, data, heap and stack exceed it and `kern_mman.c` caps
@@ -524,6 +524,10 @@ renumbered after D24; D22 and D23 use the old numbers (old 4, 5, 6, 7, 8,
       window (`USER_DATA_END - USER_DATA_START`, in `machparam.h`) and
       test that a program over 96 KB runs and that `sbrk` past the window
       fails
+      Done (D46): `MAXMEM` is `USER_DATA_SIZE` in `machparam.h`; also fixed
+      bss missing from the exec limit, `execve` losing `ENOMEM` to
+      `ENOEXEC`, and libc `sbrk` returning the old break instead of -1.
+      Smoke test `libmem`; reverting each fix is caught
 - [ ] Boot to a shell in QEMU; smoke test core commands
 - [ ] Revisit `basic` PEEK/POKE (low priority): they are no-ops since the
       `ufetch`/`ustore` syscalls were removed (D24). Options: direct memory
