@@ -44,11 +44,14 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   abstraction (`sys/m68k/<board>/`) so another board can be added later.
 - **Superseded in part by D25:** the Amiga becomes the first real hardware
   board, as M6 work; it stays out of scope until then.
+- **Reopened by D49:** the first board follows from the bring-up platform
+  chosen in the new M7.
 
 ## D8: Native on-target compilers and tools are out of scope
 - **Decision:** `as`, `ld`, `cc`, `adb`, `aout`, PCC/`ccom`, `lcc`, `lccom`,
   `smlrc` and similar are not ported. They are excluded from the m68k build.
   All code is cross-built on the host.
+- **Reopened in part by D55:** a native C compiler is planned in M17.
 
 ## D9: Keep the 2.11BSD filesystem format; big-endian on disk
 - **Status:** Proposed; to be confirmed during the M4 endianness audit.
@@ -86,6 +89,8 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     sources can be converted or replaced in place for m68k.
   - PIC32 code and documentation stay in the tree for now as reference
     material while porting; delete them later, once nothing needs consulting.
+- **Superseded in part by D54:** the PIC32 code and docs are removed in the
+  new M6, "PIC32 cleanup".
   - No upstream merging or tracking is expected. Any rebase onto
     `RetroBSD/retrobsd` is done manually, per patch, and only where relevant.
 
@@ -143,6 +148,8 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   machine headers, so minimal `sys/m68k/` headers are created in M1.
 - **History:** amended after review. The original text put the symlink change
   in M2 and added an `include/m68k` link; both were dropped.
+- **Superseded in part by D54:** the reference code is removed in the new
+  M6, "PIC32 cleanup".
 
 ## D14: Build files are converted in place
 - **Decision:** `target.mk`, `sys/pic32/Makefile.kconf` and `clang-config.mk`
@@ -406,6 +413,8 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
   limits are listed in `docs/porting/README.md`. `fsave`/`frestore` being
   illegal on QEMU's 68030 must be handled by the context switch (M3 task
   3), which decides how.
+- **Reopened in part by D49:** WinUAE as the validation platform is
+  re-evaluated in the new M7; its "M6" validation task is now M11 (D51).
 
 ## D26: User bus and address errors are not restarted
 - **Context:** a bus or address error leaves a format A or B frame (32 or
@@ -1123,3 +1132,170 @@ Short records of porting decisions. Newest last. Status: Accepted unless noted.
     old `/dev/null` mode, by a new `userland-e2e` line.
   - Only RAM is reachable; device registers are not. On the Amiga,
     reaching the custom chips and CIAs is an M6 task.
+
+## D49: Choose the bring-up platform first (new M7)
+
+- **Context:** D7 and D25 made the Amiga under WinUAE the first real board
+  and the place to validate what QEMU cannot emulate (bus and address
+  errors, FPU exceptions, `fsave`/`frestore`, `rte` format errors, PMMU).
+  WinUAE may be heavy to integrate into the agent workflow, which needs
+  scripted boots and a remote debugger, and other emulators model a 68030
+  with a PMMU too.
+- **Decision:**
+  - A new milestone M7, "Bring-up platform", comes before any board work.
+    It evaluates Hatari (TT emulation with the PMMU), stock WinUAE, WinUAE
+    forks, FS-UAE and ARAnyM against three requirements: runs on Linux,
+    a competent remote debugger (CLI or MCP), and MMU emulation accuracy.
+    It ends with a recorded choice of platform and first board.
+  - The old M6, "Optional / future", moves after it and is split into
+    smaller milestones (M9-M17, D51, D53).
+  - Older decisions are not edited for the renumbering: "M6" in D1-D48
+    means that old milestone. D7 and D25 are marked as reopened.
+- **Consequences:** the Amiga is no longer assumed as the first board;
+  Amiga-specific tasks (RDB partitions, custom chip access from `basic`)
+  depend on the choice. Until it is made, no emulator other than QEMU is
+  integrated.
+
+## D50: Assess memory models before board work (new M8)
+
+- **Context:** the kernel has one memory model: one user process in core
+  in a fixed window, whole-process swapping and no MMU (D5, D41, D46).
+  The 68030's goal is full virtual memory with the PMMU. Board bring-up
+  and the rest of the old M6 would add more code that assumes the current
+  model.
+- **Decision:**
+  - A new milestone M8, "Memory models", comes after the platform choice
+    (M7) and before the board work (M9, D51). It inventories what assumes the
+    current model, studies how 2.11BSD, 4.4BSD and NetBSD separate the
+    memory model, and decides whether one codebase can build kernels for
+    both models, selected at configuration time. The interface must not
+    exclude a later 68040 MMU model, but no 68040 work is planned.
+  - If feasible, M8 also puts the current model behind the chosen
+    interface without changing behaviour, adds the selection with the
+    current model as the default and a stub virtual memory model, builds
+    both in `make check`, and plans the virtual memory implementation.
+    Implementing virtual memory is not part of M8.
+  - The old M6 task "Evaluate keeping several user processes in memory"
+    moves into M8.
+- **Consequences:** PMMU code written in M8
+  can only run on the M7 platform; the assessment itself does not need it.
+
+## D51: Split the old M6 into milestones M9-M16
+
+- **Context:** after D49 and D50, the old M6, "Optional / future", mixed
+  board bring-up, validation, userland, tuning and low-priority items
+  such as BASIC `INP`/`OUT` on Amiga chip registers. Board hardware
+  support (serial ports, a console on screen with keyboard input) had no
+  task at all.
+- **Decision:** the old M6 is split:
+  - M9, board bring-up: the board chosen in M7 with an early console,
+    the clock interrupt, a kernel loader and a RAM disk root.
+  - M10, board hardware support: interrupt-driven hardware serial ports,
+    and a console TTY on the display with keyboard input. Both can be the
+    console and take logins. Later also the disk driver (with RDB
+    partitions if it is the Amiga) and the real-time clock.
+  - M11, hardware validation: the D25 recheck and cache management (D34).
+  - M12, virtual memory, as planned in M8.
+  - M13, memory size and tuning beyond the 128 KB heritage limits.
+  - M14, userland completeness: target-format data files (D37) and
+    running ELF directly (D39).
+  - M15, performance: the alignment (D17) and signal set call (D19)
+    experiments.
+  - M16, future: BASIC `INP`/`OUT` on hardware registers (D48), low
+    priority (M17 since D53).
+- **Consequences:** "M6" in D1-D48 means the old milestone; its tasks are
+  now in M9-M17. The board-specific wording in M9-M17 follows the M7
+  choice.
+
+## D52: 4.4BSD and NetBSD as reference and source code
+
+- **Context:** the port already reads 4.4BSD (hp300, luna68k) and NetBSD
+  for its m68k design (D22, D23, D25 and others) and has copied code from
+  NetBSD (the string routines, D42). The memory model work (M8) and the
+  board work (M9 onwards) will lean on them more. Which sources may be
+  read, and which may be copied, was only recorded case by case.
+- **Decision:**
+  - 4.4BSD (including its hp300 and luna68k ports) and NetBSD are valid
+    references for design and behaviour.
+  - NetBSD source code may be copied ("cherry-picked") to fill in an
+    implementation where that is needed, rather than writing it anew.
+    Its BSD licence is compatible; copied files or fragments keep their
+    copyright and licence notices and name the NetBSD file they come from.
+  - Every time implementation code is transferred from another code base,
+    the user is told explicitly: the source (project, file and version),
+    what was taken, how much was changed, and the licence. Design read
+    from a reference without copying code needs no such flag. Code from
+    other sources (for example compiler-rt, D43) still needs its licence
+    checked and a decision of its own.
+- **Consequences:** copied code stays traceable to its origin, and the
+  user can review each transfer and its licence when it happens.
+
+## D53: Assess bringing TCP/IP back (new M16)
+
+- **Context:** RetroBSD removed 2.11BSD's networking to fit PIC32. Only
+  the socket syscall slots (stubs), `include/netinet/in.h`, a few socket
+  users and the PIC32-only WIZnet library remain; the stack is not in this
+  repository's history. The 68030 boards have more memory and can carry
+  network hardware.
+- **Decision:** a new milestone M16, "Networking (TCP/IP)", before the
+  future items (now M17). It first assesses feasibility and estimates the
+  effort: what is missing against 2.11BSD, which source to use (2.11BSD,
+  4.4BSD or NetBSD parts, D52), the fit in memory and with the memory
+  models (M8), and the hardware. The hardware target is SLIP over the M10
+  serial ports and one Ethernet board per platform (`virtio-net` on QEMU
+  `virt`, one board for the M7 platform). Implementation tasks are added
+  only if the assessment decides to go ahead.
+- **Consequences:** M16 depends on M10 (serial ports) and, for the
+  Ethernet board, on M7 and M9. The milestone after it, "Future", is M17.
+
+## D54: Remove the stale PIC32 code before the next milestones (new M6)
+
+- **Context:** D11 abandoned PIC32 but kept its code and docs as reference
+  until told otherwise (also D13). M0-M5 are done: the m68k kernel and
+  userland build and boot, and what was needed from the PIC32 code has
+  been ported. The leftovers (`sys/pic32/`, the MIPS libc and startup,
+  `clang-config.mk`, PIC32-only libraries and programs, PIC32 docs) now
+  get in the way of searches, `clangd` and readers.
+- **Decision:** a new milestone M6, "PIC32 cleanup", before the bring-up
+  platform choice. It inventories the PIC32 and MIPS content, removes as
+  much as possible in focused commits with `make check` passing after
+  each, and rewrites the docs for the m68k system. Anything kept gets a
+  reason in the inventory. Git history keeps the removed code as
+  reference. The milestones after it move up by one: bring-up platform
+  M7, memory models M8, board work M9-M10, validation M11, virtual memory
+  M12, memory size M13, userland M14, performance M15, networking M16,
+  future M17. The numbers in D49-D53 are the new ones.
+- **Consequences:** supersedes the "keep PIC32 code and docs" part of D11
+  and D13 once M6 is done; until then the M6 tasks are the only place
+  where PIC32 code is deleted. The M1 task to delete `clang-config.mk`
+  moves into M6.
+
+## D55: A native C compiler as future work (M17)
+
+- **Context:** D8 kept native compilers and tools out of scope; all code
+  is cross-built with GCC on the host. A 68030 system with a disk and
+  more memory than PIC32 can host a small compiler, and vbcc and the
+  maintained fork of PCC both have a 68k backend.
+- **Decision:** M17 gets tasks to evaluate vbcc against PCC (code quality,
+  FPU, ABI compatibility with the GCC-built libc, assembler and linker
+  needs, a.out output, memory fit, licence), then port the chosen compiler
+  with an assembler, linker and the files native builds need, tested by
+  compiling and running a program on the target. GCC stays the system
+  compiler for building the tree.
+- **Consequences:** reopens D8 for the C compiler and its tools only. The
+  old native tools (`as`, `ld`, `cc`, `adb`, PCC/`ccom`, `lcc`, `smlrc`)
+  are not revived unless the evaluation picks one.
+
+## D56: Amiga chipset access through a dedicated interface
+
+- **Context:** the M17 task let `basic` `INP`/`OUT` reach the Amiga
+  custom chips and CIAs through `/dev/mem` (D48). Raw register access
+  gives no chip RAM allocation for DMA, no coordination with the kernel's
+  own drivers and nothing reusable by other programs.
+- **Decision:** replace that task with an analysis of how to expose the
+  chipset: system calls behind a userland library API and/or device
+  files in `/dev`, followed by implementing the chosen interface.
+  `basic` becomes one consumer of it.
+- **Consequences:** `/dev/mem` stays the generic PEEK/POKE path (D48); the
+  chipset interface depends on the board work (M9, M10) and is designed
+  with the memory models (M8, M12).
