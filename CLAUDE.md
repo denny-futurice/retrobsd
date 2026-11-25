@@ -35,6 +35,7 @@ This fork is porting RetroBSD to the Motorola 68030, first on QEMU `virt`. Read
 - **QEMU source:** `docs/qemu` is a shallow submodule at the QEMU version `make check` runs
   (`v11.1.2`, D29), for checking emulator behaviour; read it instead of fetching QEMU sources.
 - Do not push to a remote unless asked.
+- **BSD 2.11 source:** `docs/BSD2.11` is a submodule containing the upstream pdp11 BSD2.11 /usr/src/ tree. It can be used as a reference and copying code from it is permissable after confirming with the user. Never touch this tree itself.
 
 ### Working rules
 

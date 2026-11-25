@@ -2,3 +2,6 @@
 	path = docs/qemu
 	url = https://gitlab.com/qemu-project/qemu.git
 	shallow = true
+[submodule "docs/BSD2.11"]
+	path = docs/BSD2.11
+	url = git@github.com:denny-futurice/BSD2.11.git

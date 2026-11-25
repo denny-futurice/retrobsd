@@ -649,13 +649,12 @@ before M9. Implementing virtual memory (M12) itself is not part of this
 milestone. The assessment can start before M7; anything that runs PMMU
 code needs the platform chosen there (QEMU's 68030 has no PMMU, D25).
 
-- [ ] Add the upstream 2.11BSD tree, at its last official patch level,
+- [x] Add the upstream 2.11BSD tree, at its last official patch level,
       as a reference submodule under `docs/` (like `docs/qemu`, D29).
-      2.11BSD is distributed as the original tape plus patches (TUHS), so
-      it needs a repository of its own first: the tape import as the
-      first commit, then one commit per patch, tagged by patch level. The
-      owner creates and pushes that repository (we never push). Add it
-      shallow, and note it in `CLAUDE.md` and `docs/porting/README.md`
+      the latest patch level import as the first commit, then one
+      commit per patch, tagged by patch level. The owner creates and
+      pushes that repository (we never push).
+      Note it in `CLAUDE.md` and `docs/porting/README.md`
 - [ ] Inventory what assumes the current model, with file and line: the
       fixed user window (`machparam.h`, `kernel.ld`, `src/elf32-m68k.ld`,
       `elf2aout`), `u`/`u0` at a fixed address, swapping (`vm_swap.c`,

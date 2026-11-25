@@ -30,6 +30,19 @@ Debian has no `m68k-elf` or `qemu-system-m68k` package: the compiler is the
 also need a host `gcc` for the tools, and `fsutil` a host C compiler for its reader (`cc`, or set `HOSTCC`). Verified versions are listed in
 decision D10. Run `make check` to validate the setup.
 
+
+## Git setup
+
+Submodules are included as references sources for Agents to use as additional documentation.
+
+| Repository     | Contents                                                              |
+|----------------|-----------------------------------------------------------------------|
+| `docs/qemu/`   | QEMU checked out at the version used for testing                      |
+| `docs/BSD2.11` | The upstream pdp11 BSD2.11 `/usr/src/` tree at the latest patch level |
+
+Source code in submodules should not be modified, it's only intended as a reference source.
+
+
 ## Editor setup (clangd)
 
 `sys/`, `src/` and `include/` each have a `compile_flags.txt` that makes clangd
